@@ -6,5 +6,6 @@ torch
 requests
 numpy
 scikit-learn
-jwt
+PyJWT
 xgboost
+joblib
