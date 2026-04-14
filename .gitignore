@@ -1,0 +1,20 @@
+# 忽略所有虚拟环境文件夹
+.venv/
+venv/
+.venv_broken_20260409/
+
+# 忽略 PyCharm 和 VS Code 的个人配置
+.idea/
+.vscode/
+
+# 忽略 Python 缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 忽略本地测试数据
+工作簿1.xlsx
+
+# 忽略系统隐藏文件
+.DS_Store
+Thumbs.db
