@@ -155,7 +155,9 @@ class DiseasePredictionApp(QMainWindow):
     def init_ui(self):
         """初始化用户界面"""
         self.setWindowTitle('玉米病害预测软件')
-        self.setGeometry(100, 100, 1000, 700)
+        # 设置合理的默认窗口大小和最小尺寸，确保界面元素清晰可见
+        self.setGeometry(100, 100, 1200, 800)
+        self.setMinimumSize(1000, 700)
 
         # 设置全局样式表 - 现代简约浅色主题
         self.setStyleSheet("""

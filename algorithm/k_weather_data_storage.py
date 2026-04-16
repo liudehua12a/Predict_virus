@@ -1709,13 +1709,13 @@ def get_weather_data(site_id: int, days: int = 7) -> list[dict[str, Any]]:
     weather_data = []
     for row in rows:
         date, temp, humidity = row
-        # 根据湿度确定天气类型
+        # 根据湿度确定天气类型（使用文字符号确保跨平台显示）
         if humidity > 80:
-            weather_icon = '☂'  # 雨天
+            weather_icon = '[雨]'  # 雨天
         elif humidity > 50:
-            weather_icon = '☁'  # 多云
+            weather_icon = '[云]'  # 多云
         else:
-            weather_icon = '☀'  # 晴天
+            weather_icon = '[晴]'  # 晴天
         weather_data.append({
             'date': date,
             'temp': temp,

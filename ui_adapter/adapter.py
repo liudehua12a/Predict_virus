@@ -3,6 +3,12 @@ import sys
 import sqlite3
 import pandas as pd
 from datetime import datetime
+import os
+
+# Matplotlib 图片标注组件
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+# PIL 用于高质量图片读取
+from PIL import Image
 
 # 项目根目录
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -303,16 +309,77 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
                  markeredgewidth=1.2)
         ax2.tick_params(axis='y', labelcolor='#1890FF')
 
-        # 在温度曲线上添加静态数值和天气标签
+        # ==========================================================
+        # 天气图标映射配置：根据 weather_info 字符串映射到本地图片路径
+        # 请将 cloud.jpg, rain.jpg, sun.jpg 放置于 ICON_DIR 目录下
+        # ==========================================================
+        ICON_DIR = ALGORITHM_DIR / "data"
+
+        # 映射表：根据 get_weather_data() 返回的 icon 字段值，映射到对应的图片文件名
+        # key 需要与 k_weather_data_storage.py 中 weather_icon 的返回值匹配
+        WEATHER_ICON_MAP = {
+            '[云]': 'cloud.jpg',   # 多云
+            '[雨]': 'rain.jpg',    # 雨天
+            '[晴]': 'sun.jpg',     # 晴天
+        }
+
+        # 图标缩放比例（根据图表尺寸调整，建议范围 0.03~0.08）
+        ICON_ZOOM = 0.08
+
+        # 缓存已加载的图片对象，避免重复读取文件
+        _icon_cache = {}
+
+        def _get_icon_image(icon_key):
+            """
+            根据 icon_key 获取对应的 OffsetImage 对象。
+            首次调用时从本地文件加载并缓存。
+            """
+            if icon_key not in _icon_cache:
+                filename = WEATHER_ICON_MAP.get(icon_key)
+                if filename:
+                    icon_path = ICON_DIR / filename
+                    if icon_path.exists():
+                        # 使用 PIL 读取图片（支持 PNG/JPG 等多种格式）
+                        img = Image.open(icon_path)
+                        # 转换为 RGBA 模式，确保透明度正确
+                        img = img.convert('RGBA')
+                        _icon_cache[icon_key] = OffsetImage(img, zoom=ICON_ZOOM)
+                    else:
+                        print(f"[警告] 天气图标文件不存在: {icon_path}")
+                        return None
+                else:
+                    return None
+            return _icon_cache[icon_key]
+
+        # 在温度曲线上添加温度数值文字 + 天气图标图片
         for i, temp in enumerate(weather_temps):
+            # ① 温度数值文字（位于数据点上方）
+            ax2.text(global_x[i], temp + 0.3, f'{temp:.1f}°C',
+                     ha='center', va='bottom', fontsize=8, color='#1890FF', zorder=10)
+
+            # ② 天气图标（位于温度文字下方，即数据点下方）
             if i < len(weather_icons):
                 weather_info = weather_icons[i]
-                # temp + 0.5 稍微抬高文字，避免和正方形 marker 重叠
-                ax2.text(global_x[i], temp + 0.5, f'{temp:.1f}°C\n{weather_info}',
-                         ha='center', va='bottom', fontsize=8, color='#1890FF', zorder=10)
-            else:
-                ax2.text(global_x[i], temp + 0.5, f'{temp:.1f}°C',
-                         ha='center', va='bottom', fontsize=8, color='#1890FF', zorder=10)
+                icon_img = _get_icon_image(weather_info)
+                if icon_img is not None:
+                    # AnnotationBbox 参数说明：
+                    #   image:    OffsetImage 对象
+                    #   xy:       图表坐标系中图标要附着的锚点（即数据点 x, y 坐标）
+                    #   xybox:    相对于 xy 的偏移量（正值向上/右偏移，负值向下/左偏移）
+                    #             这里设置 (0, -20) 表示图标底部对齐到数据点再往下偏移 20 像素
+                    #   xycoords: 指定 xy 的坐标系类型，'data' 表示使用数据坐标
+                    #   boxcoords: 指定 xybox 的坐标系，'offset points' 表示像素偏移
+                    #   frameon:  是否绘制边框框，设为 False 则为无边框透明背景
+                    ab = AnnotationBbox(
+                        icon_img,
+                        xy=(global_x[i], temp),      # 锚点：数据点的 (x, y) 坐标
+                        xybox=(0, -18),               # 偏移量：向下移动 18 像素（确保图标在温度文字下方）
+                        xycoords='data',              # xy 使用数据坐标系
+                        boxcoords='offset points',    # xybox 使用像素偏移
+                        frameon=False,                # 无边框，图标背景透明
+                        zorder=10,                    # 置于顶层，确保不被其他元素遮挡
+                    )
+                    ax2.add_artist(ab)
 
     # --- 4. 设置坐标轴和图例 ---
     if global_x:
