@@ -32,20 +32,34 @@ class DiseaseLSTM(nn.Module):
 
 
 class DiseaseLSTMFusion(nn.Module):
-    """融合模型结构：LSTM + MLP 后经融合层输出双目标。"""
+    """
+    融合结构：
+    先提取倒数第二层特征，再由线性头输出；
+    在线推理时将 extract_penultimate 的输出与 tab_scaled 拼接，送入 xgb_models 做最终融合。
+    """
 
     def __init__(self, seq_dim: int, tab_dim: int):
         super().__init__()
         self.lstm = nn.LSTM(input_size=seq_dim, hidden_size=20, batch_first=True)
-        self.tab_net = nn.Sequential(nn.Linear(tab_dim, 24), nn.ReLU(), nn.Dropout(0.05))
-        self.fusion = nn.Sequential(nn.Linear(44, 24), nn.ReLU())
+        self.tab_net = nn.Sequential(
+            nn.Linear(tab_dim, 24),
+            nn.ReLU(),
+            nn.Dropout(0.05),
+        )
+        self.fusion = nn.Sequential(
+            nn.Linear(44, 24),
+            nn.ReLU(),
+        )
         self.head = nn.Linear(24, 2)
 
-    def forward(self, seq_input: torch.Tensor, tab_input: torch.Tensor) -> torch.Tensor:
+    def extract_penultimate(self, seq_input: torch.Tensor, tab_input: torch.Tensor) -> torch.Tensor:
         seq_output, _ = self.lstm(seq_input)
         seq_hidden = seq_output[:, -1, :]
         tab_hidden = self.tab_net(tab_input)
-        fusion_hidden = self.fusion(torch.cat([seq_hidden, tab_hidden], dim=1))
+        return self.fusion(torch.cat([seq_hidden, tab_hidden], dim=1))
+
+    def forward(self, seq_input: torch.Tensor, tab_input: torch.Tensor) -> torch.Tensor:
+        fusion_hidden = self.extract_penultimate(seq_input, tab_input)
         return self.head(fusion_hidden)
 
 
@@ -166,6 +180,7 @@ def train_model(
         "best_val_loss": best_val_loss,
         "output_alphas": np.asarray(output_alphas, dtype=np.float32),
         "monotonic_flags": monotonic_flags,
+        "xgb_models": [],
     }
 
 
@@ -177,11 +192,13 @@ def train_full_model(site_rows: dict[int, list[dict[str, Any]]], targets: list[s
 
 def save_bundle(bundle: dict[str, Any], save_path: str | Path) -> None:
     save_path = Path(save_path)
-    model: DiseaseLSTM = bundle["model"]
+    model = bundle["model"]
+
     payload = {
         "seq_dim": int(model.lstm.input_size),
         "tab_dim": int(model.tab_net[0].in_features),
         "model_state_dict": {k: v.detach().cpu() for k, v in model.state_dict().items()},
+        "xgb_models": bundle.get("xgb_models", []),
         "scalers": bundle["scalers"],
         "targets": list(bundle["targets"]),
         "best_val_loss": float(bundle["best_val_loss"]),
@@ -191,6 +208,7 @@ def save_bundle(bundle: dict[str, Any], save_path: str | Path) -> None:
         "base_model_features": list(cfg.BASE_MODEL_FEATURES),
         "lookback_days": int(cfg.LOOKBACK_DAYS),
     }
+
     save_path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(payload, save_path)
 
@@ -202,24 +220,36 @@ def load_bundle(save_path: str | Path) -> dict[str, Any]:
         payload = torch.load(save_path, map_location=cfg.DEVICE, weights_only=False)
     state_dict = payload["model_state_dict"]
 
-    if (
+    is_fusion_style = (
         "fusion.0.weight" in state_dict
         and "fusion.0.bias" in state_dict
         and "head.weight" in state_dict
         and "head.bias" in state_dict
-    ):
+    )
+
+    is_lstm_style = (
+        "head.0.weight" in state_dict
+        and "head.0.bias" in state_dict
+        and "head.2.weight" in state_dict
+        and "head.2.bias" in state_dict
+    )
+
+    if is_fusion_style:
         model = DiseaseLSTMFusion(
             seq_dim=int(payload["seq_dim"]),
             tab_dim=int(payload["tab_dim"]),
         ).to(cfg.DEVICE)
-        model.load_state_dict(state_dict)
-    else:
+    elif is_lstm_style:
         model = DiseaseLSTM(
             seq_dim=int(payload["seq_dim"]),
             tab_dim=int(payload["tab_dim"]),
         ).to(cfg.DEVICE)
-        model.load_state_dict(state_dict)
+    else:
+        raise ValueError(
+            f"无法识别模型结构，缺少关键权重字段。示例 keys: {list(state_dict.keys())[:10]}"
+        )
 
+    model.load_state_dict(state_dict)
     model.eval()
 
     return {
@@ -229,26 +259,56 @@ def load_bundle(save_path: str | Path) -> dict[str, Any]:
         "best_val_loss": payload["best_val_loss"],
         "output_alphas": np.asarray(payload["output_alphas"], dtype=np.float32),
         "monotonic_flags": payload["monotonic_flags"],
-        "xgb_models": payload.get("xgb_models"),
+        "xgb_models": payload.get("xgb_models", []),
     }
 
 
 def predict_row(bundle: dict[str, Any], row: dict[str, Any], previous_targets: np.ndarray) -> np.ndarray:
+    #  XGBoost bundle
     if isinstance(bundle, dict) and "models" in bundle and "imputers" in bundle and "scalers" in bundle:
         return _predict_row_xgboost_bundle(bundle, row, previous_targets)
 
     tab_values = [fe.fill_none(row[name]) for name in cfg.BASE_MODEL_FEATURES] + previous_targets.tolist()
     seq = row["weather_seq_21"].astype(np.float32)
     tab = np.asarray(tab_values, dtype=np.float32)
-    seq_scaled, tab_scaled = fe.apply_scalers(seq[None, ...], tab[None, ...], bundle["scalers"])
-    with torch.no_grad():
-        prediction = bundle["model"](
-            torch.tensor(seq_scaled, dtype=torch.float32, device=cfg.DEVICE),
-            torch.tensor(tab_scaled, dtype=torch.float32, device=cfg.DEVICE),
-        )
-    delta_values = fe.unscale_targets(prediction.cpu().numpy(), bundle["scalers"])[0]
 
-    values = previous_targets + bundle["output_alphas"] * delta_values
+    seq_scaled, tab_scaled = fe.apply_scalers(seq[None, ...], tab[None, ...], bundle["scalers"])
+    seq_tensor = torch.tensor(seq_scaled, dtype=torch.float32, device=cfg.DEVICE)
+    tab_tensor = torch.tensor(tab_scaled, dtype=torch.float32, device=cfg.DEVICE)
+
+    with torch.no_grad():
+        prediction = bundle["model"](seq_tensor, tab_tensor)
+        if hasattr(bundle["model"], "extract_penultimate"):
+            penultimate = bundle["model"].extract_penultimate(seq_tensor, tab_tensor).cpu().numpy()
+        else:
+            penultimate = None
+
+    delta_values = fe.unscale_targets(prediction.cpu().numpy(), bundle["scalers"])[0]
+    lstm_values = previous_targets + bundle["output_alphas"] * delta_values
+    lstm_values = np.asarray(lstm_values, dtype=np.float32)
+
+    xgb_models = bundle.get("xgb_models", [])
+    use_xgb_fusion = (
+        penultimate is not None
+        and isinstance(xgb_models, (list, tuple))
+        and len(xgb_models) == len(bundle["targets"])
+        and any(model is not None for model in xgb_models)
+    )
+
+    if use_xgb_fusion:
+        xgb_features = np.concatenate([penultimate[0], tab_scaled[0]], axis=0).astype(np.float32)[None, :]
+        xgb_values = []
+        for output_index, model in enumerate(xgb_models):
+            if model is None:
+                xgb_values.append(float(lstm_values[output_index]))
+            else:
+                pred = model.predict(xgb_features)
+                xgb_values.append(float(np.asarray(pred, dtype=np.float32).reshape(-1)[0]))
+        fusion_alpha = 0.2
+        values = (1.0 - fusion_alpha) * lstm_values + fusion_alpha * np.asarray(xgb_values, dtype=np.float32)
+    else:
+        values = lstm_values.astype(np.float32)
+
     for output_index, is_monotonic in enumerate(bundle["monotonic_flags"]):
         if is_monotonic:
             values[output_index] = max(values[output_index], previous_targets[output_index])

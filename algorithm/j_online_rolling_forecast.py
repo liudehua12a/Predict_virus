@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from pathlib import Path
 
+import joblib
 import numpy as np
 import a_config as cfg
 import d_model_training_testing as mt
@@ -53,7 +54,7 @@ def build_prediction_result_row(
     row: dict[str, Any],
     prev_targets: np.ndarray,
     pred_targets: np.ndarray,
-    model_type: str = "XGBoost",
+    model_type: str = "LSTM",
 ) -> dict[str, Any]:
     """
     将单日预测结果整理成便于前端/数据库使用的结构。
@@ -176,7 +177,7 @@ def save_prediction_results_for_one_disease(
     base_source_id: str | None = None,
     prediction_run_id: str | None = None,
     allow_insert: bool = False,
-    model_type: str = "XGBoost",
+    model_type: str = "LSTM",
 ) -> str:
     """
     将当前单病害滚动预测结果写入 disease_prediction 宽表。
@@ -227,7 +228,7 @@ def run_single_disease_prediction_and_save(
     2. 滚动预测
     3. 落库到 disease_prediction 宽表对应列
     """
-    bundle = load_full_bundle_for_disease(disease_key)
+    bundle = load_full_bundle_for_disease(disease_key, model_type=model_type)
 
     prediction_results = prepare_and_rolling_forecast(
         bundle=bundle,
@@ -320,13 +321,41 @@ def run_all_diseases_prediction_and_save(
     }
 
 
-def load_full_bundle_for_disease(disease_key: str) -> dict[str, Any]:
+def load_full_bundle_for_disease(disease_key: str, model_type: str = "XGBoost") -> dict[str, Any]:
     """
     加载某个病害对应的 full bundle。
     """
-    bundle_path = cfg.MODEL_DIR / f"full_bundle_{disease_key}.pt"
-    if not bundle_path.exists():
-        raise FileNotFoundError(f"未找到模型文件: {bundle_path}")
+    compact = str(model_type or "").strip().lower().replace(" ", "").replace("_", "").replace("-", "")
+    load_as_xgboost = False
+
+    if ("xgboost" in compact) and ("lstm" not in compact) and ("fusion" not in compact) and ("融合" not in compact):
+        model_dir = getattr(cfg, "MODEL_DIR_XGBOOST", cfg.MODULE_DIR / "models" / "Xgboost")
+        candidates = [
+            model_dir / f"xg_full_bundle_{disease_key}.pt",
+        ]
+        load_as_xgboost = True
+    elif ("fusion" in compact) or ("融合" in compact) or (("lstm" in compact) and ("xgboost" in compact)):
+        model_dir = getattr(cfg, "MODEL_DIR_LSTM_XGBOOST", cfg.MODULE_DIR / "models" / "lstm+xgboost")
+        candidates = [
+            model_dir / f"fus_full_bundle_{disease_key}.pt",
+        ]
+    else:
+        model_dir = getattr(cfg, "MODEL_DIR_LSTM", getattr(cfg, "MODEL_DIR", cfg.MODULE_DIR / "models" / "lstm"))
+        candidates = [
+            model_dir / f"lstm_full_bundle_{disease_key}.pt",
+            model_dir / f"full_bundle_{disease_key}.pt",
+        ]
+
+    bundle_path = next((p for p in candidates if p.exists()), None)
+    if bundle_path is None:
+        raise FileNotFoundError(
+            f"未找到模型文件: disease_key={disease_key}, model_type={model_type!r}, candidates={[str(p) for p in candidates]}"
+        )
+
+    print(f"[ModelSelect] model_type={model_type!r} -> 使用模型: {bundle_path}")
+    if load_as_xgboost:
+        return joblib.load(str(bundle_path), mmap_mode=None)
+
     return mt.load_bundle(bundle_path)
 
 def rebuild_predictions_after_observation(

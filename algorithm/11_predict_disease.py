@@ -52,17 +52,16 @@ def load_full_bundle_for_disease(disease_key: str, model_type: str = "XGBoost"):
     ):
         model_dir = getattr(cfg, "MODEL_DIR_XGBOOST", getattr(cfg, "MODEL_DIR", BASE_DIR))
         candidate_names = [f"xg_full_bundle_{disease_key}.pt", f"full_bundle_{disease_key}.pt"]
-        load_as_xgboost = True
 
     elif ("fusion" in model_type_compact) or ("融合" in model_type_compact) or (
         ("lstm" in model_type_compact) and ("xgboost" in model_type_compact)
     ):
-        model_dir = getattr(cfg, "MODEL_DIR_LSTM_XGBOOST", getattr(cfg, "MODEL_DIR", BASE_DIR))
+        model_dir = getattr(cfg, "MODEL_DIR_FUSION", getattr(cfg, "MODEL_DIR", BASE_DIR))
         candidate_names = [
             f"fus_full_bundle_{disease_key}.pt",
             f"fusion_full_bundle_{disease_key}.pt",
+            f"full_bundle_{disease_key}.pt",
         ]
-        load_as_xgboost = False
 
     elif "lstm" in model_type_compact:
         model_dir = getattr(cfg, "MODEL_DIR_LSTM", getattr(cfg, "MODEL_DIR", BASE_DIR))
@@ -70,7 +69,6 @@ def load_full_bundle_for_disease(disease_key: str, model_type: str = "XGBoost"):
             f"lstm_full_bundle_{disease_key}.pt",
             f"full_bundle_{disease_key}.pt",
         ]
-        load_as_xgboost = False
 
     else:
         raise ValueError(f"不支持的 model_type: {model_type!r}")
@@ -89,13 +87,8 @@ def load_full_bundle_for_disease(disease_key: str, model_type: str = "XGBoost"):
             f"search_dir={model_dir}, candidates={candidate_names}"
         )
 
-    if load_as_xgboost:
-        return joblib.load(bundle_path)
-
-    bundle = mt.load_bundle(bundle_path)
-    model_obj = bundle.get("model")
-    return bundle
-
+    print(f"[ModelSelect] model_type={model_type!r} -> 使用模型: {bundle_path}")
+    return joblib.load(bundle_path)
 
 
 def _get_initial_previous_targets(
@@ -125,7 +118,6 @@ def _get_initial_previous_targets(
     value_2 = min(max(value_2, 0.0), init_cap) * init_alpha
 
     return np.asarray([value_1, value_2], dtype=np.float32)
-
 
 
 def _build_prediction_result_row(
@@ -159,7 +151,6 @@ def _build_prediction_result_row(
         "pred_target_2_risk": cfg.classify_risk(pred_value_2),
         "pred_overall_risk": cfg.combine_risk(pred_value_1, pred_value_2),
     }
-
 
 
 def _rolling_forecast_next_n_days(
@@ -208,7 +199,6 @@ def _rolling_forecast_next_n_days(
     return prediction_results
 
 
-
 def run_all_diseases_prediction_and_save(
     site_id: int,
     batch_id: int,
@@ -244,6 +234,10 @@ def run_all_diseases_prediction_and_save(
 
     all_results = {}
     disease_order = ["gray", "blight", "white"]
+
+    print(
+        f"[ForecastParams] init_alpha={init_alpha}, init_cap={init_cap}, monotonic_output=False"
+    )
 
     future_rows = opp.build_future_prediction_rows(
         history_daily_rows=history_daily_rows,
