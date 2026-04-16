@@ -53,6 +53,7 @@ def build_prediction_result_row(
     row: dict[str, Any],
     prev_targets: np.ndarray,
     pred_targets: np.ndarray,
+    model_type: str = "XGBoost",
 ) -> dict[str, Any]:
     """
     将单日预测结果整理成便于前端/数据库使用的结构。
@@ -75,7 +76,7 @@ def build_prediction_result_row(
         "site_id": row["site_id"],
         "disease_key": disease_key,
         "disease_cn": disease_cfg["cn_name"],
-        "model_type": cfg.ONLINE_MODEL_TYPE,
+        "model_type": model_type,
 
         "prev_target_1_name": target_1,
         "prev_target_2_name": target_2,
@@ -98,6 +99,7 @@ def rolling_forecast_next_n_days(
     disease_key: str,
     future_rows: list[dict[str, Any]],
     last_observed_values: dict[str, float] | None = None,
+    model_type: str = "XGBoost",
 ) -> list[dict[str, Any]]:
     """
     对未来多天样本做逐日滚动预测。
@@ -126,6 +128,7 @@ def rolling_forecast_next_n_days(
             row=row,
             prev_targets=previous_targets,
             pred_targets=pred_targets,
+            model_type=model_type,
         )
         prediction_results.append(result_row)
 
@@ -142,6 +145,7 @@ def prepare_and_rolling_forecast(
     site_id: int,
     predict_dates: list[str],
     last_observed_values: dict[str, float] | None = None,
+    model_type: str = "XGBoost",
 ) -> list[dict[str, Any]]:
     """
     一站式函数：
@@ -160,6 +164,7 @@ def prepare_and_rolling_forecast(
         disease_key=disease_key,
         future_rows=future_rows,
         last_observed_values=last_observed_values,
+        model_type=model_type,
     )
 
 
@@ -171,6 +176,7 @@ def save_prediction_results_for_one_disease(
     base_source_id: str | None = None,
     prediction_run_id: str | None = None,
     allow_insert: bool = False,
+    model_type: str = "XGBoost",
 ) -> str:
     """
     将当前单病害滚动预测结果写入 disease_prediction 宽表。
@@ -190,7 +196,7 @@ def save_prediction_results_for_one_disease(
         prediction_run_id=prediction_run_id,
         site_id=site_id,
         batch_id=batch_id,
-        model_type=cfg.ONLINE_MODEL_TYPE,
+        model_type=model_type,
         disease_key=disease_key,
         prediction_results=prediction_results,
         base_observation_date=base_observation_date,
@@ -213,6 +219,7 @@ def run_single_disease_prediction_and_save(
     prediction_run_id: str,
     last_observed_values: dict[str, float] | None = None,
     allow_insert: bool = False,
+    model_type: str = "XGBoost",
 ) -> list[dict[str, Any]]:
     """
     执行单个病害的：
@@ -230,6 +237,7 @@ def run_single_disease_prediction_and_save(
         site_id=site_id,
         predict_dates=predict_dates,
         last_observed_values=last_observed_values,
+        model_type=model_type,
     )
 
     if last_observed_values:
@@ -245,6 +253,7 @@ def run_single_disease_prediction_and_save(
         base_source_id=None,
         prediction_run_id=prediction_run_id,
         allow_insert=allow_insert,
+        model_type=model_type,
     )
 
     return prediction_results
@@ -258,6 +267,7 @@ def run_all_diseases_prediction_and_save(
     predict_dates: list[str],
     history_end_date_str: str,
     last_observed_by_disease: dict[str, dict[str, float] | None] | None = None,
+    model_type: str = "XGBoost",
 ) -> dict[str, list[dict[str, Any]]]:
     """
     顺序执行三种病害预测，并共用同一个 prediction_run_id。
@@ -271,7 +281,7 @@ def run_all_diseases_prediction_and_save(
     storage.disable_current_prediction_rows(
         site_id=site_id,
         batch_id=batch_id,
-        model_type=cfg.ONLINE_MODEL_TYPE,
+        model_type=model_type,
         predict_dates=predict_dates,
     )
     all_results: dict[str, list[dict[str, Any]]] = {}
@@ -293,6 +303,7 @@ def run_all_diseases_prediction_and_save(
             prediction_run_id=prediction_run_id,
             last_observed_values=disease_last_observed,
             allow_insert=allow_insert,
+            model_type=model_type,
         )
 
         all_results[disease_key] = disease_results
@@ -323,6 +334,7 @@ def rebuild_predictions_after_observation(
     batch_id: int,
     observation_date_str: str,
     forecast_horizon_days: int = 7,
+    model_type: str = "XGBoost",
 ) -> dict[str, Any]:
     """
     当某条真实调查值入库后：
@@ -345,7 +357,7 @@ def rebuild_predictions_after_observation(
         site_id=site_id,
         batch_id=batch_id,
         predict_date=observation_row["survey_date"],
-        model_type=cfg.ONLINE_MODEL_TYPE,
+        model_type=model_type,
     )
 
     has_conflict = storage.observation_conflicts_with_current_prediction(
@@ -395,7 +407,7 @@ def rebuild_predictions_after_observation(
     storage.disable_current_predictions_from_date(
         site_id=site_id,
         batch_id=batch_id,
-        model_type=cfg.ONLINE_MODEL_TYPE,
+        model_type=model_type,
         start_date_str=forecast_start_date_str,
     )
 
@@ -408,6 +420,7 @@ def rebuild_predictions_after_observation(
         predict_dates=predict_dates,
         history_end_date_str=observation_row["survey_date"],
         last_observed_by_disease=last_observed_by_disease,
+        model_type=model_type,
     )
 
     return {

@@ -39,6 +39,7 @@ def build_last_observed_for_prediction_start(
         site_id: int,
         batch_id: int,
         yesterday_date: date,
+        model_type: str = "XGBoost",
 ) -> tuple[dict[str, dict[str, float] | None], str]:
     """
     决定 online prediction 的起点 previous_targets 来源：
@@ -72,7 +73,7 @@ def build_last_observed_for_prediction_start(
         site_id=site_id,
         batch_id=batch_id,
         predict_date=yesterday_str,
-        model_type=cfg.ONLINE_MODEL_TYPE,
+        model_type=model_type,
     )
 
     if prediction_row:
@@ -141,7 +142,7 @@ def run_online_prediction_for_today(
         forecast_days: int = 7,
 ) -> dict[str, Any]:
     """
-    界面点击“预测”时调用的统一入口。
+    界面点击"预测"时调用的统一入口。
 
     逻辑：
     1. today 默认取系统当前日期
@@ -169,6 +170,7 @@ def run_online_prediction_for_today(
         site_id=site_id,
         batch_id=batch_id,
         yesterday_date=yesterday_date,
+        model_type=model_type,
     )
 
     all_output = forecast10.run_all_diseases_prediction_and_save(
@@ -179,12 +181,13 @@ def run_online_prediction_for_today(
         predict_dates=predict_dates,
         history_end_date_str=history_end_date_str,
         last_observed_by_disease=last_observed_by_disease,
+        model_type=model_type,
     )
 
     return {
         "site_id": site_id,
         "batch_id": batch_id,
-        "model_type": cfg.ONLINE_MODEL_TYPE,
+        "model_type": model_type,
         "today_date": today_date.strftime("%Y-%m-%d"),
         "yesterday_date": yesterday_date.strftime("%Y-%m-%d"),
         "forecast_end_date": forecast_end_date_str,
