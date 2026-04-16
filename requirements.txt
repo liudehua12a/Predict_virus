@@ -6,6 +6,7 @@ torch
 requests
 numpy
 scikit-learn
-PyJWT
+PyJWT[crypto]
+cryptography
 xgboost
 joblib
