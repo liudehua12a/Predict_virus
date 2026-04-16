@@ -6,12 +6,15 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 import uuid
-import h_qweather_api as weather_api
+from algorithm import h_qweather_api as weather_api
 
 # ======分区1：连接与基础工具======
 # ===== 数据库文件路径 =====
 
-DB_PATH = Path("./algorithm/data/nky-CornPre.db")
+CURRENT_DIR = Path(__file__).resolve().parent
+DB_PATH = CURRENT_DIR / "data" / "nky-CornPre.db"
+DB_PATH=Path(DB_PATH)
+
 DATA_SOURCE_PRIORITY = {
     "mock": 1,
     "forecast_daily": 2,
