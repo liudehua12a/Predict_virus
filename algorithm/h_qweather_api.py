@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from math import ceil
 from pathlib import Path
 from typing import Any
-import g_qweather_client as qweather_api
+from algorithm import g_qweather_client as qweather_api
 
 
 """
