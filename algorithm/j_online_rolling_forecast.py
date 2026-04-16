@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from pathlib import Path
 
+import joblib
 import numpy as np
 import a_config as cfg
 import d_model_training_testing as mt
@@ -313,9 +314,40 @@ def load_full_bundle_for_disease(disease_key: str) -> dict[str, Any]:
     """
     加载某个病害对应的 full bundle。
     """
-    bundle_path = cfg.MODEL_DIR / f"full_bundle_{disease_key}.pt"
-    if not bundle_path.exists():
-        raise FileNotFoundError(f"未找到模型文件: {bundle_path}")
+    model_type = str(getattr(cfg, "ONLINE_MODEL_TYPE", "lstm") or "lstm")
+    compact = model_type.strip().lower().replace(" ", "").replace("_", "").replace("-", "")
+    load_as_xgboost = False
+
+    if ("xgboost" in compact) and ("lstm" not in compact) and ("fusion" not in compact) and ("融合" not in compact):
+        model_dir = getattr(cfg, "MODEL_DIR_XGBOOST", cfg.MODULE_DIR / "models" / "Xgboost")
+        candidates = [
+            model_dir / f"xg_full_bundle_{disease_key}.pt",
+            model_dir / f"full_bundle_{disease_key}.pt",
+        ]
+        load_as_xgboost = True
+    elif ("fusion" in compact) or ("融合" in compact) or (("lstm" in compact) and ("xgboost" in compact)):
+        model_dir = getattr(cfg, "MODEL_DIR_LSTM_XGBOOST", cfg.MODULE_DIR / "models" / "lstm+xgboost")
+        candidates = [
+            model_dir / f"fus_full_bundle_{disease_key}.pt",
+            model_dir / f"full_bundle_{disease_key}.pt",
+        ]
+    else:
+        model_dir = getattr(cfg, "MODEL_DIR_LSTM", getattr(cfg, "MODEL_DIR", cfg.MODULE_DIR / "models" / "lstm"))
+        candidates = [
+            model_dir / f"lstm_full_bundle_{disease_key}.pt",
+            model_dir / f"full_bundle_{disease_key}.pt",
+        ]
+
+    bundle_path = next((p for p in candidates if p.exists()), None)
+    if bundle_path is None:
+        raise FileNotFoundError(
+            f"未找到模型文件: disease_key={disease_key}, model_type={model_type!r}, candidates={[str(p) for p in candidates]}"
+        )
+
+    print(f"[ModelSelect] model_type={model_type!r} -> 使用模型: {bundle_path}")
+    if load_as_xgboost:
+        return joblib.load(str(bundle_path), mmap_mode=None)
+
     return mt.load_bundle(bundle_path)
 
 def rebuild_predictions_after_observation(
