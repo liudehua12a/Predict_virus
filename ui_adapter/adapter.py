@@ -244,7 +244,7 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
     ax2 = ax1.twinx()
 
     # 设置图表标题，增加pad参数
-    ax1.set_title('未来一周病害发病程度与天气预测', fontsize=16, fontweight='bold', color='#333333', pad=40)
+    ax1.set_title('未来一周病害发病程度与天气预测', fontsize=20, fontweight='bold', color='#333333', pad=60)
     ax1.set_xlabel('日期', fontsize=12)
     ax1.set_ylabel('发病程度', fontsize=12)
     ax2.set_ylabel('平均温度 (°C)', color='#1890FF', fontsize=12)
@@ -324,7 +324,7 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
         }
 
         # 图标缩放比例（根据图表尺寸调整，建议范围 0.03~0.08）
-        ICON_ZOOM = 0.08
+        ICON_ZOOM = 0.1
 
         # 缓存已加载的图片对象，避免重复读取文件
         _icon_cache = {}
@@ -355,7 +355,7 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
         for i, temp in enumerate(weather_temps):
             # ① 温度数值文字（位于数据点上方）
             ax2.text(global_x[i], temp + 0.3, f'{temp:.1f}°C',
-                     ha='center', va='bottom', fontsize=8, color='#1890FF', zorder=10)
+                     ha='center', va='bottom', fontsize=12, color='#1890FF', zorder=10)
 
             # ② 天气图标（位于温度文字下方，即数据点下方）
             if i < len(weather_icons):
@@ -413,7 +413,7 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax1.legend(lines1 + lines2, labels1 + labels2, loc='lower center', 
                bbox_to_anchor=(0.5, 1.02), ncol=4, frameon=False, 
-               fontsize=10, handletextpad=0.5, columnspacing=1.5)
+               fontsize=15, handletextpad=1.5, columnspacing=1.5)
 
     # 调整布局，为顶部图例留出足够空间，释放右侧空间
     figure.tight_layout(rect=[0, 0, 0.95, 0.95])
@@ -429,7 +429,7 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
         "", xy=(0, 0), xytext=(15, 15),
         textcoords="offset points",
         bbox=dict(boxstyle="round,pad=0.5", fc="#FFFFFF", ec="#D9D9D9", lw=1, alpha=0.9),
-        zorder=100, fontsize=9
+        zorder=100, fontsize=15
     )
     annot.set_visible(False)
 

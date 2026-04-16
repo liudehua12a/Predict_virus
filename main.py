@@ -82,14 +82,14 @@ class WelcomeWidget(QWidget):
         # 玉米图标
         icon_label = QLabel('🌽', self)
         icon_label.setAlignment(Qt.AlignCenter)
-        icon_label.setStyleSheet("font-size: 80px;")
+        icon_label.setStyleSheet("font-size: 180px;")
         header_layout.addWidget(icon_label)
         
         # 欢迎标题
         title_label = QLabel('欢迎使用玉米病害智能预测软件', self)
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setStyleSheet("""
-            font-size: 28px;
+            font-size: 40px;
             font-weight: bold;
             color: #1B5E20;
         """)
@@ -105,25 +105,28 @@ class WelcomeWidget(QWidget):
         # 步骤1
         step1 = StepCard(
             number="1",
-            icon="📊",
+            icon="<span style='font-size: 50px;'>📊</span>",
             description="点击左上角【导入Excel数据】加载历史危害数据"
         )
+        step1.setStyleSheet("font-size: 20px;")
         steps_layout.addWidget(step1)
         
         # 步骤2
         step2 = StepCard(
             number="2",
-            icon="🔍",
+            icon="<span style='font-size: 50px;'>🔍</span>",
             description="在下拉框选择对应的【预测模型】和【目标区域】"
         )
+        step2.setStyleSheet("font-size: 20px;")
         steps_layout.addWidget(step2)
         
         # 步骤3
         step3 = StepCard(
             number="3",
-            icon="▶",
+            icon="<span style='font-size: 50px;'>▶</span>",
             description="点击【开始预测】获取未来一周的疾病危害趋势图表"
         )
+        step3.setStyleSheet("font-size: 20px;")
         steps_layout.addWidget(step3)
         
         layout.addLayout(steps_layout)
@@ -132,7 +135,7 @@ class WelcomeWidget(QWidget):
         footer_label = QLabel('© 2026 玉米病害预测软件', self)
         footer_label.setAlignment(Qt.AlignCenter)
         footer_label.setStyleSheet("""
-            font-size: 12px;
+            font-size: 20px;
             color: #666666;
             margin-top: 20px;
         """)
@@ -156,7 +159,7 @@ class DiseasePredictionApp(QMainWindow):
         """初始化用户界面"""
         self.setWindowTitle('玉米病害预测软件')
         # 设置合理的默认窗口大小和最小尺寸，确保界面元素清晰可见
-        self.setGeometry(100, 100, 1200, 800)
+        self.setGeometry(100, 100, 1500, 1100)
         self.setMinimumSize(1000, 700)
 
         # 设置全局样式表 - 现代简约浅色主题
@@ -169,7 +172,7 @@ class DiseasePredictionApp(QMainWindow):
                 background-color: #F5F7FA;
                 color: #333333;
                 font-family: "Microsoft YaHei UI", "PingFang SC", "SimHei", sans-serif;
-                font-size: 12px;
+                font-size: 20px;
             }
 
             /* 功能区卡片样式 */
@@ -227,9 +230,10 @@ class DiseasePredictionApp(QMainWindow):
                 background-color: #FFFFFF;
                 border: 1px solid #D9D9D9;
                 border-radius: 6px;
-                padding: 6px 12px;
-                min-width: 120px;
+                padding: 10px 20px;
+                min-width: 180px;
                 color: #333333;
+                font-size:18px;
             }
             QComboBox:hover {
                 border-color: #1890FF;
@@ -331,9 +335,10 @@ class DiseasePredictionApp(QMainWindow):
         # 顶部功能区 - 卡片化设计
         control_panel = QWidget()
         control_panel.setObjectName("controlPanel")
+        control_panel.setMinimumHeight(60)
         top_layout = QHBoxLayout(control_panel)
-        top_layout.setContentsMargins(0, 0, 0, 0)
-        top_layout.setSpacing(16)
+        top_layout.setContentsMargins(10, 10, 10, 10)
+        top_layout.setSpacing(24)
         
         # Excel导入按钮
         self.import_btn = QPushButton('📊 导入Excel数据')
@@ -345,6 +350,7 @@ class DiseasePredictionApp(QMainWindow):
         model_layout = QHBoxLayout()
         model_layout.setSpacing(8)
         model_label = QLabel('预测模型:')
+        model_label.setStyleSheet("font-weight:bold;font-size:20px;")
         self.model_combo = QComboBox()
         self.model_combo.addItems(['XGBoost', 'LSTM', 'LSTM-XGBoost 融合模型'])
         model_layout.addWidget(model_label)
@@ -355,6 +361,7 @@ class DiseasePredictionApp(QMainWindow):
         area_layout = QHBoxLayout()
         area_layout.setSpacing(8)
         area_label = QLabel('目标区域:')
+        area_label.setStyleSheet("font-weight:bold;font-size:20px;")
         self.area_combo = QComboBox()
         self.batch_combo = QComboBox()
         
