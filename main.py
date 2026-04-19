@@ -79,22 +79,19 @@ class WelcomeWidget(QWidget):
         header_layout.setAlignment(Qt.AlignCenter)
         header_layout.setSpacing(15)
         
-        # 玉米图标
-        icon_label = QLabel('🌽', self)
-        icon_label.setAlignment(Qt.AlignCenter)
-        icon_label.setStyleSheet("font-size: 180px;")
-        header_layout.addWidget(icon_label)
-        
-        # 欢迎标题
+
         title_label = QLabel('欢迎使用玉米病害智能预测软件', self)
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setStyleSheet("""
-            font-size: 40px;
+            font-size: 30px;
             font-weight: bold;
-            color: #1B5E20;
+            color: #00F0FF;
+            letter-spacing: 2px;
+            
         """)
+        # 设置 header_layout 的边距：左, 上, 右, 下
+        header_layout.setContentsMargins(0, 70, 0, 0)  # 将上方边距设为 40像素
         header_layout.addWidget(title_label)
-        
         layout.addLayout(header_layout)
         
         # 操作步骤提示 - 卡片式引导流
@@ -135,18 +132,50 @@ class WelcomeWidget(QWidget):
         footer_label = QLabel('© 2026 玉米病害预测软件', self)
         footer_label.setAlignment(Qt.AlignCenter)
         footer_label.setStyleSheet("""
-            font-size: 20px;
-            color: #666666;
-            margin-top: 20px;
+            font-size: 15px;
+            color: #8B9BB4;
+            margin-top: 150px;
         """)
         layout.addWidget(footer_label)
-        
+
+
         # 设置样式
-        self.setStyleSheet("""
-            WelcomeWidget {
-                background-color: #F5F7FA;
-            }
-        """)
+        # 1. 获取当前运行脚本的绝对目录 (假设这个脚本在项目的根目录下)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # 2. 拼接图片的绝对路径
+        bg_path = os.path.join(base_dir, 'algorithm', 'data', 'imgs', 'background', '5.jpg')
+
+        # 3. 【极其重要】Qt 的 url() 只认正斜杠 '/'。
+        # 如果你是在 Windows 下开发，os.path.join 默认生成的是反斜杠 '\'，必须把它替换掉！
+        bg_path = bg_path.replace('\\', '/')
+
+        # 4. PyQt 自定义 QWidget 想要生效背景图，强烈建议加上这句属性设置
+        self.setAttribute(Qt.WA_StyledBackground, True)
+
+        self.setStyleSheet(f"""
+                    WelcomeWidget {{
+                        /* 注意这里使用了 f-string 和 {bg_path} 变量 */
+                        border-image: url('{bg_path}');
+                    }}
+
+                    /* 【关键修复 1】必须清除所有文本标签的图片继承 */
+                    WelcomeWidget QLabel {{
+                        border-image: none;
+                        background-color: transparent;
+                    }}
+
+                    /* 【关键修复 2】清除步骤卡片的图片继承，加入玻璃拟物化效果 */
+                    WelcomeWidget .StepCard {{
+                        border-image: none;
+                        background-color: rgba(18, 31, 61, 0.80); 
+                    }}
+
+                    WelcomeWidget .StepCard:hover {{
+                        border-image: none;
+                        background-color: rgba(22, 38, 74, 0.95); 
+                    }}
+                """)
 
 # 主应用类
 class DiseasePredictionApp(QMainWindow):
@@ -159,169 +188,132 @@ class DiseasePredictionApp(QMainWindow):
         """初始化用户界面"""
         self.setWindowTitle('玉米病害预测软件')
         # 设置合理的默认窗口大小和最小尺寸，确保界面元素清晰可见
-        self.setGeometry(100, 100, 1500, 1100)
+        self.setGeometry(100, 100, 1300, 800)
         self.setMinimumSize(1000, 700)
 
         # 设置全局样式表 - 现代简约浅色主题
         self.setStyleSheet("""
-            /* 主窗口和全局背景 */
-            QMainWindow {
-                background-color: #F5F7FA;
-            }
-            QWidget {
-                background-color: #F5F7FA;
-                color: #333333;
+            /* 主窗口和全局背景：极暗海军蓝 */
+            QMainWindow, QWidget {
+                background-color: #0B132B;
+                color: #E0E6ED;
                 font-family: "Microsoft YaHei UI", "PingFang SC", "SimHei", sans-serif;
                 font-size: 20px;
             }
 
-            /* 功能区卡片样式 */
+            /* 功能区卡片样式：悬浮深色卡片 */
             #controlPanel {
-                background-color: #FFFFFF;
+                background-color: #121F3D;
                 border-radius: 8px;
                 padding: 16px;
-                border: 1px solid #E8E8E8;
+                border: 1px solid #1C315E;
+                /* 模拟一点发光边缘的效果 */
+                border-top: 1px solid #2B4C7E; 
             }
 
-            /* 按钮样式 */
+            /* 普通按钮样式：线框科技风 */
             QPushButton {
-                background-color: #FFFFFF;
-                border: 1px solid #D9D9D9;
+                background-color: transparent;
+                border: 1px solid #00F0FF;
                 border-radius: 6px;
                 padding: 8px 16px;
-                color: #333333;
-                font-weight: 500;
+                color: #00F0FF;
+                font-weight: bold;
                 min-width: 100px;
             }
             QPushButton:hover {
-                border-color: #1890FF;
-                color: #1890FF;
+                background-color: rgba(0, 240, 255, 0.1);
+                border: 1px solid #FFFFFF;
+                color: #FFFFFF;
             }
             QPushButton:pressed {
-                background-color: #E6F7FF;
+                background-color: rgba(0, 240, 255, 0.2);
             }
-            QPushButton:focus {
-                outline: none;
-                border-color: #1890FF;
-            }
+            
+            /* 强调按钮（开始预测）：实心发光风 */
             QPushButton#predictBtn {
-                background-color: #1890FF;
-                border-color: #1890FF;
+                background-color: #007BFF;
+                border: 1px solid #007BFF;
                 color: #FFFFFF;
             }
             QPushButton#predictBtn:hover {
-                background-color: #40A9FF;
-                border-color: #40A9FF;
-            }
-            QPushButton#predictBtn:pressed {
-                background-color: #096DD9;
-                border-color: #096DD9;
-            }
-            QPushButton#importBtn {
-                border-color: #1890FF;
-                color: #1890FF;
-            }
-            QPushButton#importBtn:hover {
-                background-color: #E6F7FF;
+                background-color: #00F0FF;
+                border: 1px solid #00F0FF;
+                color: #0B132B; /* 鼠标悬浮时文字变暗，增加对比 */
             }
 
-            /* 下拉框样式 */
+            /* 下拉框样式：暗色面板 + 亮色边框 */
             QComboBox {
-                background-color: #FFFFFF;
-                border: 1px solid #D9D9D9;
+                background-color: #0F1934;
+                border: 1px solid #1C315E;
                 border-radius: 6px;
                 padding: 10px 20px;
                 min-width: 180px;
-                color: #333333;
-                font-size:18px;
+                color: #E0E6ED;
+                font-size: 18px;
             }
-            QComboBox:hover {
-                border-color: #1890FF;
-            }
-            QComboBox:focus {
-                border-color: #1890FF;
+            QComboBox:hover, QComboBox:focus {
+                border-color: #00F0FF;
             }
             QComboBox::drop-down {
                 border: none;
-                width: 25px;
-                border-radius: 0 6px 6px 0;
+                width: 30px;
             }
             QComboBox::down-arrow {
                 image: none;
                 border-left: 5px solid transparent;
                 border-right: 5px solid transparent;
-                border-top: 6px solid #999999;
-                width: 0;
-                height: 0;
-                margin-right: 5px;
+                border-top: 6px solid #00F0FF; /* 青色下拉小三角 */
+                margin-right: 8px;
             }
             QComboBox QAbstractItemView {
-                background-color: #FFFFFF;
-                border: 1px solid #D9D9D9;
+                background-color: #121F3D;
+                border: 1px solid #00F0FF;
                 border-radius: 6px;
-                selection-background-color: #E6F7FF;
-                selection-color: #1890FF;
+                selection-background-color: rgba(0, 240, 255, 0.2);
+                selection-color: #00F0FF;
                 padding: 4px;
+                outline: none;
             }
 
             /* 标签样式 */
             QLabel {
                 background-color: transparent;
-                color: #333333;
-                font-weight: 500;
+                color: #B3C0D1;
+                font-weight: bold;
             }
 
-            /* 消息框样式 */
-            QMessageBox {
-                background-color: #F5F7FA;
-            }
-            QMessageBox QLabel {
-                color: #333333;
-            }
-            QMessageBox QPushButton {
-                min-width: 80px;
-            }
-
-            /* 文件对话框样式 */
-            QFileDialog {
-                background-color: #F5F7FA;
-            }
-
-            /* 工具提示样式 */
-            QToolTip {
-                background-color: #FFFFFF;
-                border: 1px solid #D9D9D9;
-                border-radius: 4px;
-                color: #333333;
-                padding: 5px 10px;
-            }
-
-            /* 步骤卡片样式 */
+            /* 步骤卡片样式：暗夜玻璃态 */
             .StepCard {
-                background-color: #FFFFFF;
+                background-color: #121F3D;
                 border-radius: 8px;
                 padding: 20px;
-                border: 1px solid #E8E8E8;
+                border: 1px solid #1C315E;
                 margin: 10px;
                 min-width: 200px;
             }
-            .StepCard QLabel {
-                color: #333333;
+            .StepCard:hover {
+                border: 1px solid #00F0FF;
+                background-color: #16264A;
             }
             .StepNumber {
-                font-size: 24px;
+                font-size: 28px;
                 font-weight: bold;
-                color: #1890FF;
-                margin-bottom: 10px;
-            }
-            .StepIcon {
-                font-size: 32px;
+                color: #00F0FF; /* 亮青色大数字 */
                 margin-bottom: 10px;
             }
             .StepDescription {
-                font-size: 14px;
-                line-height: 1.4;
-                color: #666666;
+                font-size: 15px;
+                line-height: 1.5;
+                color: #B3C0D1;
+            }
+            
+            /* 弹出框和文件对话框 */
+            QMessageBox, QFileDialog {
+                background-color: #0B132B;
+            }
+            QMessageBox QLabel {
+                color: #E0E6ED;
             }
         """)
 
@@ -341,7 +333,8 @@ class DiseasePredictionApp(QMainWindow):
         top_layout.setSpacing(24)
         
         # Excel导入按钮
-        self.import_btn = QPushButton('📊 导入Excel数据')
+        self.import_btn = QPushButton('📊 导入Excel')
+        self.import_btn.setStyleSheet("font-size:14px;")
         self.import_btn.setObjectName("importBtn")
         self.import_btn.clicked.connect(self.import_excel)
         top_layout.addWidget(self.import_btn)
@@ -378,6 +371,7 @@ class DiseasePredictionApp(QMainWindow):
         
         # 预测按钮
         self.predict_btn = QPushButton('▶ 开始预测')
+        self.predict_btn.setStyleSheet("font-size:14px;")
         self.predict_btn.setObjectName("predictBtn")
         self.predict_btn.clicked.connect(self.start_prediction)
         top_layout.addWidget(self.predict_btn)
@@ -464,7 +458,7 @@ class DiseasePredictionApp(QMainWindow):
                 self,
                 '导入成功',
                 f"真实调查数据导入成功！\n"
-                f"结果：{result}"
+
             )
 
             # 导入真实调查后，点位/批次通常不变，但保留刷新
@@ -522,7 +516,7 @@ class DiseasePredictionApp(QMainWindow):
             QMessageBox.information(
                 self,
                 '预测完成',
-                f"预测完成！\nrun_id: {result.get('prediction_run_id')}"
+                f"预测完成！"
             )
 
         except Exception as e:

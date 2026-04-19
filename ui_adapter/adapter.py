@@ -215,76 +215,69 @@ def normalize_prediction_result_for_ui(result, site_id, batch_id, model_type):
 
 def visualize_prediction(figure, canvas, prediction_result, site_id):
     """
-    可视化三种病害的预测结果为曲线图 (混合模式：静态温度 + 交互式病害提示框)
-    
-    参数:
-        figure: matplotlib Figure 对象
-        canvas: matplotlib Canvas 对象
-        prediction_result: 预测结果数据
-        site_id: 站点 ID
+    可视化三种病害的预测结果为曲线图 (深蓝科技风)
     """
     # 清空图表
     figure.clear()
 
-    # 设置子图边距，顶部留出充足空间
-    figure.subplots_adjust(top=0.80)
+    # [新增] 设置画板外围背景色为深蓝 (完美融入 PyQt 主窗口)
+    figure.patch.set_facecolor('#0B132B')
 
     # 获取三种病害的数据
     results_by_disease = prediction_result.get('results_by_disease', {})
 
-    # 病害配置 - 使用现代色彩
+    # [修改] 病害配置 - 针对深色背景，将颜色稍微提亮，增加荧光感
     diseases = {
-        'blight': {'name': '大斑病', 'color': '#1D39C4'},
-        'gray': {'name': '灰斑病', 'color': '#389E0D'},
-        'white': {'name': '白斑病', 'color': '#FA8C16'}
+        'blight': {'name': '大斑病', 'color': '#4096FF'},  # 亮蓝色
+        'gray': {'name': '灰斑病', 'color': '#73D13D'},  # 亮绿色
+        'white': {'name': '白斑病', 'color': '#FFC069'}  # 亮橙色
     }
 
     # 创建子图，设置双y轴
     ax1 = figure.add_subplot(111)
     ax2 = ax1.twinx()
 
-    # 设置图表标题，增加pad参数
-    ax1.set_title('未来一周病害发病程度与天气预测', fontsize=20, fontweight='bold', color='#333333', pad=60)
-    ax1.set_xlabel('日期', fontsize=12)
-    ax1.set_ylabel('发病程度', fontsize=12)
-    ax2.set_ylabel('平均温度 (°C)', color='#1890FF', fontsize=12)
+    # [新增] 设置坐标系内部背景色 (略微亮一点的深蓝卡片色)
+    ax1.set_facecolor('#121F3D')
 
-    # --- 1. 绘制背景色带 (商业级柔和风格) ---
-    # 低风险区
-    ax1.axhspan(0, 30, facecolor='#BAE7FF', alpha=0.5, zorder=0)
-    # 中风险区
-    ax1.axhspan(30, 70, facecolor='#FFFFB8', alpha=0.6, zorder=0)
-    # 高风险区
-    ax1.axhspan(70, 100, facecolor='#FFCCC7', alpha=0.8, zorder=0)
+    # [修改] 设置图表标题和坐标轴文字颜色，改为亮青色和浅灰蓝色
+    ax1.set_title('未来一周病害发病程度与天气预测', fontsize=18, fontweight='bold', color='#00F0FF', pad=30)
+    ax1.set_xlabel('日期', fontsize=12, color='#B3C0D1')
+    ax1.set_ylabel('发病程度', fontsize=12, color='#B3C0D1')
+    ax2.set_ylabel('平均温度 (°C)', color='#00F0FF', fontsize=12)
 
-    # 添加风险区边界虚线
-    ax1.axhline(y=30, color='#D9D9D9', linestyle='--', linewidth=0.8, alpha=0.6, zorder=1)
-    ax1.axhline(y=70, color='#D9D9D9', linestyle='--', linewidth=0.8, alpha=0.6, zorder=1)
+    # --- 1. 绘制背景色带 (科技风深色暗色带) ---
+    # 低风险区 (微弱的青色发光)
+    ax1.axhspan(0, 30, facecolor='#1890FF', alpha=0.10, zorder=0)
+    # 中风险区 (微弱的橙色预警)
+    ax1.axhspan(30, 70, facecolor='#FADB14', alpha=0.5, zorder=0)
+    # 高风险区 (微弱的红色警示)
+    ax1.axhspan(70, 100, facecolor='#F5222D', alpha=0.5, zorder=0)
+
+    # [修改] 风险区边界虚线改为科技蓝
+    #ax1.axhline(y=30, color='#2B4C7E', linestyle='--', linewidth=1, alpha=0.8, zorder=1)
+    #ax1.axhline(y=70, color='#2B4C7E', linestyle='--', linewidth=1, alpha=0.8, zorder=1)
 
     max_val = 0
     global_dates = []
     global_x = []
-
-    # 用于存储悬停提示框需要的数据
     tooltip_data = []
 
-    # --- 2. 绘制病害曲线 (无静态标签) ---
+    # --- 2. 绘制病害曲线 ---
     for disease_key, disease_info in diseases.items():
         disease_data = results_by_disease.get(disease_key, [])
         if disease_data:
-            # 提取日期（仅执行一次以获取全局日期）
             if not global_dates:
                 global_dates = [item['date'] for item in disease_data]
                 global_x = list(range(len(global_dates)))
 
             values = [item['pred_target_2_value'] for item in disease_data]
 
-            # 绘制曲线 - 使用现代样式
+            # 绘制曲线 (折线点内部填充改为背景色，显得更通透)
             ax1.plot(global_x, values, marker='o', linestyle='-', color=disease_info['color'],
-                     label=disease_info['name'], linewidth=2, markersize=6, markerfacecolor='white',
-                     markeredgewidth=1.5)
+                     label=disease_info['name'], linewidth=2.5, markersize=7,
+                     markerfacecolor='#121F3D', markeredgewidth=2)
 
-            # 保存数据供悬停框使用
             tooltip_data.append({
                 'name': disease_info['name'],
                 'values': values,
@@ -294,7 +287,7 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
             if values:
                 max_val = max(max_val, max(values))
 
-    # --- 3. 绘制天气曲线 (带静态标签) ---
+    # --- 3. 绘制天气曲线 ---
     from algorithm.k_weather_data_storage import get_weather_data
     weather_data = get_weather_data(site_id, 7)
     weather_temps = []
@@ -303,163 +296,120 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
         weather_temps = [item['temp'] for item in weather_data]
         weather_icons = [item['icon'] for item in weather_data]
 
-        # 绘制温度曲线 - 使用虚线区分
-        ax2.plot(global_x, weather_temps, marker='s', linestyle='--', color='#1890FF', 
-                 label='平均温度', linewidth=1.2, markersize=5, markerfacecolor='white',
+        # 温度虚线
+        ax2.plot(global_x, weather_temps, marker='s', linestyle='--', color='#00F0FF',
+                 label='平均温度', linewidth=1.2, markersize=5, markerfacecolor='#121F3D',
                  markeredgewidth=1.2)
-        ax2.tick_params(axis='y', labelcolor='#1890FF')
+        ax2.tick_params(axis='y', colors='#00F0FF')
 
-        # ==========================================================
-        # 天气图标映射配置：根据 weather_info 字符串映射到本地图片路径
-        # 请将 cloud.jpg, rain.jpg, sun.jpg 放置于 ICON_DIR 目录下
-        # ==========================================================
-        ICON_DIR = ALGORITHM_DIR / "data"
-
-        # 映射表：根据 get_weather_data() 返回的 icon 字段值，映射到对应的图片文件名
-        # key 需要与 k_weather_data_storage.py 中 weather_icon 的返回值匹配
+        ICON_DIR = ALGORITHM_DIR / "data" / "weather"
         WEATHER_ICON_MAP = {
-            '[云]': 'cloud.jpg',   # 多云
-            '[雨]': 'rain.jpg',    # 雨天
-            '[晴]': 'sun.jpg',     # 晴天
+            '[云]': 'cloud1.png',
+            '[雨]': 'rain1.png',
+            '[晴]': 'sun.png',
         }
-
-        # 图标缩放比例（根据图表尺寸调整，建议范围 0.03~0.08）
         ICON_ZOOM = 0.1
-
-        # 缓存已加载的图片对象，避免重复读取文件
         _icon_cache = {}
 
         def _get_icon_image(icon_key):
-            """
-            根据 icon_key 获取对应的 OffsetImage 对象。
-            首次调用时从本地文件加载并缓存。
-            """
             if icon_key not in _icon_cache:
                 filename = WEATHER_ICON_MAP.get(icon_key)
                 if filename:
                     icon_path = ICON_DIR / filename
                     if icon_path.exists():
-                        # 使用 PIL 读取图片（支持 PNG/JPG 等多种格式）
-                        img = Image.open(icon_path)
-                        # 转换为 RGBA 模式，确保透明度正确
-                        img = img.convert('RGBA')
+                        from PIL import Image
+                        from matplotlib.offsetbox import OffsetImage
+                        img = Image.open(icon_path).convert('RGBA')
                         _icon_cache[icon_key] = OffsetImage(img, zoom=ICON_ZOOM)
                     else:
-                        print(f"[警告] 天气图标文件不存在: {icon_path}")
                         return None
                 else:
                     return None
             return _icon_cache[icon_key]
 
-        # 在温度曲线上添加温度数值文字 + 天气图标图片
         for i, temp in enumerate(weather_temps):
-            # ① 温度数值文字（位于数据点上方）
             ax2.text(global_x[i], temp + 0.3, f'{temp:.1f}°C',
-                     ha='center', va='bottom', fontsize=12, color='#1890FF', zorder=10)
+                     ha='center', va='bottom', fontsize=12, color='#00F0FF', zorder=10)
 
-            # ② 天气图标（位于温度文字下方，即数据点下方）
             if i < len(weather_icons):
-                weather_info = weather_icons[i]
-                icon_img = _get_icon_image(weather_info)
+                from matplotlib.offsetbox import AnnotationBbox
+                icon_img = _get_icon_image(weather_icons[i])
                 if icon_img is not None:
-                    # AnnotationBbox 参数说明：
-                    #   image:    OffsetImage 对象
-                    #   xy:       图表坐标系中图标要附着的锚点（即数据点 x, y 坐标）
-                    #   xybox:    相对于 xy 的偏移量（正值向上/右偏移，负值向下/左偏移）
-                    #             这里设置 (0, -20) 表示图标底部对齐到数据点再往下偏移 20 像素
-                    #   xycoords: 指定 xy 的坐标系类型，'data' 表示使用数据坐标
-                    #   boxcoords: 指定 xybox 的坐标系，'offset points' 表示像素偏移
-                    #   frameon:  是否绘制边框框，设为 False 则为无边框透明背景
                     ab = AnnotationBbox(
-                        icon_img,
-                        xy=(global_x[i], temp),      # 锚点：数据点的 (x, y) 坐标
-                        xybox=(0, -18),               # 偏移量：向下移动 18 像素（确保图标在温度文字下方）
-                        xycoords='data',              # xy 使用数据坐标系
-                        boxcoords='offset points',    # xybox 使用像素偏移
-                        frameon=False,                # 无边框，图标背景透明
-                        zorder=10,                    # 置于顶层，确保不被其他元素遮挡
+                        icon_img, xy=(global_x[i], temp), xybox=(0, -18),
+                        xycoords='data', boxcoords='offset points',
+                        frameon=False, zorder=10
                     )
                     ax2.add_artist(ab)
 
     # --- 4. 设置坐标轴和图例 ---
     if global_x:
         ax1.set_xticks(global_x)
-        date_labels = [date[5:] for date in global_dates]  # 只取月-日
+        date_labels = [date[5:] for date in global_dates]
         ax1.set_xticklabels(date_labels, rotation=0, ha='center', fontsize=10)
 
     max_val = max_val - max_val % 10 + 15 if max_val > 0 else 100
     ax1.set_ylim(0, max(100, max_val))
 
     if weather_data:
-        # 给最高温度上方多留一点空间，防止静态标签被顶部边缘裁切
         ax2.set_ylim(min(weather_temps) - 1, max(weather_temps) + 5)
 
-    # 去除冗余线条
+    # 去除上和右边框
     ax1.spines['top'].set_visible(False)
     ax1.spines['right'].set_visible(False)
     ax2.spines['top'].set_visible(False)
     ax2.spines['right'].set_visible(False)
-    
-    # 淡化刻度线
-    ax1.tick_params(axis='x', color='#E0E0E0')
-    ax1.tick_params(axis='y', color='#E0E0E0')
-    ax2.tick_params(axis='y', color='#E0E0E0')
-    
-    # 添加水平网格线
-    ax1.grid(axis='y', linestyle='--', color='#E0E0E0', alpha=0.6)
 
-    # 优化图例 - 移至图表外部上方水平排列
+    # [修改] 将底边和左边的坐标轴线改为深蓝色
+    ax1.spines['bottom'].set_color('#1C315E')
+    ax1.spines['left'].set_color('#1C315E')
+    ax2.spines['bottom'].set_color('#1C315E')
+    ax2.spines['left'].set_color('#1C315E')
+
+    # [修改] 刻度文字颜色改为浅灰蓝
+    ax1.tick_params(axis='x', colors='#B3C0D1')
+    ax1.tick_params(axis='y', colors='#B3C0D1')
+    ax2.tick_params(axis='y', colors='#00F0FF')
+
+    # [修改] 图例文字颜色设置 (通过 labelcolor 属性确保在深色背景下可见)
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc='lower center', 
-               bbox_to_anchor=(0.5, 1.02), ncol=4, frameon=False, 
-               fontsize=15, handletextpad=1.5, columnspacing=1.5)
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc='lower center',
+               bbox_to_anchor=(0.5, 1.0), ncol=4, frameon=False,
+               fontsize=12, handletextpad=0.5, columnspacing=1.5,
+               labelcolor='#E0E6ED')  # 关键：让图例文字变成亮色
 
-    # 调整布局，为顶部图例留出足够空间，释放右侧空间
-    figure.tight_layout(rect=[0, 0, 0.95, 0.95])
+    figure.tight_layout(rect=[0, 0, 0.98, 1.0])
 
     # ====== 5. 交互式悬停提示框逻辑 ======
-
-    # 创建垂直游标线 (初始隐藏)
-    v_line = ax1.axvline(x=0, color='gray', linestyle=':', alpha=0.8, zorder=5)
+    # 游标线也改为亮青色
+    v_line = ax1.axvline(x=0, color='#00F0FF', linestyle=':', alpha=0.5, zorder=5)
     v_line.set_visible(False)
 
-    # 创建文本提示框 (初始隐藏)
+    # [修改] 提示框改为暗夜玻璃态：深蓝底色 + 青色发光边框 + 白色文字
     annot = ax1.annotate(
         "", xy=(0, 0), xytext=(15, 15),
         textcoords="offset points",
-        bbox=dict(boxstyle="round,pad=0.5", fc="#FFFFFF", ec="#D9D9D9", lw=1, alpha=0.9),
-        zorder=100, fontsize=15
+        bbox=dict(boxstyle="round,pad=0.6", fc="#121F3D", ec="#00F0FF", lw=1.5, alpha=0.95),
+        zorder=100, fontsize=12, color="#FFFFFF"
     )
     annot.set_visible(False)
 
     def hover(event):
-        # 检查鼠标是否在图表区域内
         if event.inaxes in (ax1, ax2) and global_x:
-            # 获取鼠标位置的 x 坐标，并四舍五入到最近的索引
             x_idx = int(round(event.xdata))
 
             if 0 <= x_idx < len(global_x):
-                # 更新垂直游标线的位置
                 v_line.set_xdata([x_idx, x_idx])
                 v_line.set_visible(True)
 
-                # 组装提示框文本内容
                 date_str = global_dates[x_idx]
                 tooltip_text = f""
 
-                # 添加病害数据
                 for item in tooltip_data:
                     val = item['values'][x_idx]
                     tooltip_text += f"{item['name']}: {val:.4f}\n"
 
-                # 添加温度数据
-                # if weather_data and x_idx < len(weather_temps):
-                #     tooltip_text += f"平均温度: {weather_temps[x_idx]:.1f}°C\n"
-                    # if x_idx < len(weather_icons):
-                    #     tooltip_text += f"天气: {weather_icons[x_idx]}"
-
-                # 更新提示框的位置和文本
                 annot.xy = (x_idx, event.ydata)
                 annot.set_text(tooltip_text.strip())
                 annot.set_visible(True)
@@ -467,16 +417,12 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
                 canvas.draw_idle()
                 return
 
-        # 如果鼠标移出范围或未匹配到点，隐藏提示框
         if annot.get_visible():
             annot.set_visible(False)
             v_line.set_visible(False)
             canvas.draw_idle()
 
-    # 绑定鼠标移动事件
     hover_cid = figure.canvas.mpl_connect("motion_notify_event", hover)
-
-    # 更新画布
     canvas.draw()
 
     return hover_cid
