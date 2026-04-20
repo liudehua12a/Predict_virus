@@ -215,48 +215,48 @@ def normalize_prediction_result_for_ui(result, site_id, batch_id, model_type):
 
 def visualize_prediction(figure, canvas, prediction_result, site_id):
     """
-    可视化三种病害的预测结果为曲线图 (深蓝科技风)
+    可视化三种病害的预测结果为曲线图 (现代生态农场风 - 浅色模式)
     """
     # 清空图表
     figure.clear()
 
-    # [新增] 设置画板外围背景色为深蓝 (完美融入 PyQt 主窗口)
-    figure.patch.set_facecolor('#0B132B')
+    # 设置画板外围背景色为浅灰绿 (完美融入 PyQt 主窗口浅色背景)
+    figure.patch.set_facecolor('#F4F7F4')
 
     # 获取三种病害的数据
     results_by_disease = prediction_result.get('results_by_disease', {})
 
-    # [修改] 病害配置 - 针对深色背景，将颜色稍微提亮，增加荧光感
+    # [修改] 病害配置 - 针对纯白背景，使用自然、清晰的色彩
     diseases = {
-        'blight': {'name': '大斑病', 'color': '#4096FF'},  # 亮蓝色
-        'gray': {'name': '灰斑病', 'color': '#73D13D'},  # 亮绿色
-        'white': {'name': '白斑病', 'color': '#FFC069'}  # 亮橙色
+        'blight': {'name': '大斑病', 'color': '#722ED1'},  # 沉稳的深蓝色
+        'gray': {'name': '灰斑病', 'color': '#64748B'},  # 生机盎然的绿色
+        'white': {'name': '白斑病', 'color': '#E2E8F0'}  # 温暖的橘黄色
     }
 
     # 创建子图，设置双y轴
     ax1 = figure.add_subplot(111)
     ax2 = ax1.twinx()
 
-    # [新增] 设置坐标系内部背景色 (略微亮一点的深蓝卡片色)
-    ax1.set_facecolor('#121F3D')
+    # 设置坐标系内部背景色 (纯白色，让数据展示更干净)
+    ax1.set_facecolor('#FFFFFF')
 
-    # [修改] 设置图表标题和坐标轴文字颜色，改为亮青色和浅灰蓝色
-    ax1.set_title('未来一周病害发病程度与天气预测', fontsize=18, fontweight='bold', color='#00F0FF', pad=30)
-    ax1.set_xlabel('日期', fontsize=12, color='#B3C0D1')
-    ax1.set_ylabel('发病程度', fontsize=12, color='#B3C0D1')
-    ax2.set_ylabel('平均温度 (°C)', color='#00F0FF', fontsize=12)
+    # 字体颜色改为深灰/浅灰，适应白底
+    ax1.set_title('未来一周病害发病程度与天气预测', fontsize=18, fontweight='bold', color='#333333', pad=36)
+    ax1.set_xlabel('日期', fontsize=12, color='#666666')
+    ax1.set_ylabel('发病程度', fontsize=12, color='#666666')
+    ax2.set_ylabel('平均温度 (°C)', color='#1890FF', fontsize=12)
 
-    # --- 1. 绘制背景色带 (科技风深色暗色带) ---
-    # 低风险区 (微弱的青色发光)
-    ax1.axhspan(0, 30, facecolor='#1890FF', alpha=0.10, zorder=0)
-    # 中风险区 (微弱的橙色预警)
-    ax1.axhspan(30, 70, facecolor='#FADB14', alpha=0.5, zorder=0)
-    # 高风险区 (微弱的红色警示)
-    ax1.axhspan(70, 100, facecolor='#F5222D', alpha=0.5, zorder=0)
+    # --- 1. 绘制背景色带 (生态清新风格) ---
+    # 浅蓝色 (安全/天空)
+    ax1.axhspan(0, 30, facecolor='#BAE7FF', alpha=1, zorder=0)
+    # 浅黄色 (中度/麦穗)
+    ax1.axhspan(30, 70, facecolor='#FFF1B8', alpha=1, zorder=0)
+    # 浅粉红色 (高风险/警示)
+    ax1.axhspan(70, 100, facecolor='#FFCCC7', alpha=1, zorder=0)
 
-    # [修改] 风险区边界虚线改为科技蓝
-    #ax1.axhline(y=30, color='#2B4C7E', linestyle='--', linewidth=1, alpha=0.8, zorder=1)
-    #ax1.axhline(y=70, color='#2B4C7E', linestyle='--', linewidth=1, alpha=0.8, zorder=1)
+    # 风险区边界虚线改为浅灰
+    #ax1.axhline(y=30, color='#D1D5DB', linestyle='--', linewidth=1, zorder=1)
+    #ax1.axhline(y=70, color='#D1D5DB', linestyle='--', linewidth=1, zorder=1)
 
     max_val = 0
     global_dates = []
@@ -273,10 +273,11 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
 
             values = [item['pred_target_2_value'] for item in disease_data]
 
-            # 绘制曲线 (折线点内部填充改为背景色，显得更通透)
+            edge_color = '#94A3B8' if disease_key == 'white' else disease_info['color']
+
             ax1.plot(global_x, values, marker='o', linestyle='-', color=disease_info['color'],
                      label=disease_info['name'], linewidth=2.5, markersize=7,
-                     markerfacecolor='#121F3D', markeredgewidth=2)
+                     markerfacecolor='white', markeredgecolor=edge_color, markeredgewidth=2)
 
             tooltip_data.append({
                 'name': disease_info['name'],
@@ -296,11 +297,11 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
         weather_temps = [item['temp'] for item in weather_data]
         weather_icons = [item['icon'] for item in weather_data]
 
-        # 温度虚线
-        ax2.plot(global_x, weather_temps, marker='s', linestyle='--', color='#00F0FF',
-                 label='平均温度', linewidth=1.2, markersize=5, markerfacecolor='#121F3D',
+        # [修改] 温度虚线颜色改为标准的 '#1890FF'，点内部填充改为 'white'
+        ax2.plot(global_x, weather_temps, marker='s', linestyle='--', color='#1890FF',
+                 label='平均温度', linewidth=1.2, markersize=5, markerfacecolor='white',
                  markeredgewidth=1.2)
-        ax2.tick_params(axis='y', colors='#00F0FF')
+        ax2.tick_params(axis='y', colors='#1890FF')
 
         ICON_DIR = ALGORITHM_DIR / "data" / "weather"
         WEATHER_ICON_MAP = {
@@ -328,8 +329,9 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
             return _icon_cache[icon_key]
 
         for i, temp in enumerate(weather_temps):
+            # [修改] 天气文字颜色改为 '#1890FF'
             ax2.text(global_x[i], temp + 0.3, f'{temp:.1f}°C',
-                     ha='center', va='bottom', fontsize=12, color='#00F0FF', zorder=10)
+                     ha='center', va='bottom', fontsize=12, color='#1890FF', zorder=10)
 
             if i < len(weather_icons):
                 from matplotlib.offsetbox import AnnotationBbox
@@ -360,38 +362,37 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
     ax2.spines['top'].set_visible(False)
     ax2.spines['right'].set_visible(False)
 
-    # [修改] 将底边和左边的坐标轴线改为深蓝色
-    ax1.spines['bottom'].set_color('#1C315E')
-    ax1.spines['left'].set_color('#1C315E')
-    ax2.spines['bottom'].set_color('#1C315E')
-    ax2.spines['left'].set_color('#1C315E')
+    # [修改] 将底边和左边的坐标轴线改为浅灰色
+    ax1.spines['bottom'].set_color('#CCCCCC')
+    ax1.spines['left'].set_color('#CCCCCC')
+    ax2.spines['bottom'].set_color('#CCCCCC')
+    ax2.spines['left'].set_color('#CCCCCC')
 
-    # [修改] 刻度文字颜色改为浅灰蓝
-    ax1.tick_params(axis='x', colors='#B3C0D1')
-    ax1.tick_params(axis='y', colors='#B3C0D1')
-    ax2.tick_params(axis='y', colors='#00F0FF')
+    # [修改] 刻度文字颜色改为深灰
+    ax1.tick_params(axis='x', colors='#666666')
+    ax1.tick_params(axis='y', colors='#666666')
 
-    # [修改] 图例文字颜色设置 (通过 labelcolor 属性确保在深色背景下可见)
+    # [修改] 图例文字颜色改回深灰 '#333333'
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax1.legend(lines1 + lines2, labels1 + labels2, loc='lower center',
-               bbox_to_anchor=(0.5, 1.0), ncol=4, frameon=False,
+               bbox_to_anchor=(0.5, 1.02), ncol=4, frameon=False,
                fontsize=12, handletextpad=0.5, columnspacing=1.5,
-               labelcolor='#E0E6ED')  # 关键：让图例文字变成亮色
+               labelcolor='#333333')
 
     figure.tight_layout(rect=[0, 0, 0.98, 1.0])
 
     # ====== 5. 交互式悬停提示框逻辑 ======
-    # 游标线也改为亮青色
-    v_line = ax1.axvline(x=0, color='#00F0FF', linestyle=':', alpha=0.5, zorder=5)
+    # [修改] 游标线改为柔和的灰色
+    v_line = ax1.axvline(x=0, color='#999999', linestyle=':', alpha=0.8, zorder=5)
     v_line.set_visible(False)
 
-    # [修改] 提示框改为暗夜玻璃态：深蓝底色 + 青色发光边框 + 白色文字
+    # [修改] 提示框改为白底深色字，带绿色边框
     annot = ax1.annotate(
         "", xy=(0, 0), xytext=(15, 15),
         textcoords="offset points",
-        bbox=dict(boxstyle="round,pad=0.6", fc="#121F3D", ec="#00F0FF", lw=1.5, alpha=0.95),
-        zorder=100, fontsize=12, color="#FFFFFF"
+        bbox=dict(boxstyle="round,pad=0.6", fc="#FFFFFF", ec="#4CAF50", lw=1.5, alpha=0.95),
+        zorder=100, fontsize=12, color="#333333"
     )
     annot.set_visible(False)
 
