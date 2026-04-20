@@ -248,11 +248,11 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
 
     # --- 1. 绘制背景色带 (生态清新风格) ---
     # 浅蓝色 (安全/天空)
-    ax1.axhspan(0, 30, facecolor='#BAE7FF', alpha=1, zorder=0)
+    ax1.axhspan(0, 30, facecolor='#312E81', alpha=0.3, zorder=0)
     # 浅黄色 (中度/麦穗)
-    ax1.axhspan(30, 70, facecolor='#FFF1B8', alpha=1, zorder=0)
+    ax1.axhspan(30, 70, facecolor='#FDE047', alpha=0.5, zorder=0)
     # 浅粉红色 (高风险/警示)
-    ax1.axhspan(70, 100, facecolor='#FFCCC7', alpha=1, zorder=0)
+    ax1.axhspan(70, 100, facecolor='#FCA5A5', alpha=1, zorder=0)
 
     # 风险区边界虚线改为浅灰
     #ax1.axhline(y=30, color='#D1D5DB', linestyle='--', linewidth=1, zorder=1)
