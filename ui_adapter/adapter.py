@@ -228,7 +228,7 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
 
     # [修改] 病害配置 - 针对纯白背景，使用自然、清晰的色彩
     diseases = {
-        'blight': {'name': '大斑病', 'color': '#722ED1'},  # 沉稳的深蓝色
+        'blight': {'name': '大斑病', 'color': '#FA8C16'},  # 沉稳的深蓝色
         'gray': {'name': '灰斑病', 'color': '#64748B'},  # 生机盎然的绿色
         'white': {'name': '白斑病', 'color': '#E2E8F0'}  # 温暖的橘黄色
     }
