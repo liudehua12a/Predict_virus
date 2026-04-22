@@ -338,7 +338,7 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
                 icon_img = _get_icon_image(weather_icons[i])
                 if icon_img is not None:
                     ab = AnnotationBbox(
-                        icon_img, xy=(global_x[i], temp), xybox=(0, -18),
+                        icon_img, xy=(global_x[i], temp + 0.3), xybox=(30, 0),
                         xycoords='data', boxcoords='offset points',
                         frameon=False, zorder=10
                     )

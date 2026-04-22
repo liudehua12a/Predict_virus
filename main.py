@@ -130,7 +130,7 @@ class WelcomeWidget(QWidget):
         layout.addLayout(steps_layout)
 
         # 底部版权信息
-        footer_label = QLabel('© 成理智源科技有限公司', self)
+        footer_label = QLabel('© 2026病害预测软件', self)
         footer_label.setAlignment(Qt.AlignCenter)
         footer_label.setStyleSheet("""
             font-size: 15px;
