@@ -6,15 +6,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 import uuid
-from algorithm import h_qweather_api as weather_api
+import h_qweather_api as weather_api
 
 # ======分区1：连接与基础工具======
 # ===== 数据库文件路径 =====
 
-CURRENT_DIR = Path(__file__).resolve().parent
-DB_PATH = CURRENT_DIR / "data" / "nky-CornPre.db"
-DB_PATH=Path(DB_PATH)
-
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = BASE_DIR / "data" / "nky-CornPre.db"
 DATA_SOURCE_PRIORITY = {
     "mock": 1,
     "forecast_daily": 2,
@@ -1250,51 +1248,151 @@ def insert_disease_observation_row(row: dict[str, Any]) -> int:
             raise ValueError(f"disease_observation 入库缺少字段: {field_name}")
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    site_id = int(row["site_id"])
+    batch_id = int(row["batch_id"])
+    survey_date = normalize_date_str(row["survey_date"])
 
-    sql = """
-    INSERT INTO disease_observation (
-        site_id,
-        batch_id,
-        survey_date,
-        crop_variety,
-        growth_stage,
-        source_file_name,
-        source_row_no,
-        gray_incidence,
-        gray_index,
-        blight_incidence,
-        blight_index,
-        white_incidence,
-        white_index,
-        created_at,
-        updated_at
-    ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-    )
-    ;
-    """
-
-    params = (
-        int(row["site_id"]),
-        int(row["batch_id"]),
-        normalize_date_str(row["survey_date"]),
-        row["crop_variety"],
-        row["growth_stage"],
-        row["source_file_name"],
-        int(row["source_row_no"]),
-        None if row["gray_incidence"] is None else float(row["gray_incidence"]),
-        None if row["gray_index"] is None else float(row["gray_index"]),
-        None if row["blight_incidence"] is None else float(row["blight_incidence"]),
-        None if row["blight_index"] is None else float(row["blight_index"]),
-        None if row["white_incidence"] is None else float(row["white_incidence"]),
-        None if row["white_index"] is None else float(row["white_index"]),
-        now_str,
-        now_str,
-    )
+    # 旧逻辑（仅插入，不处理重复）
+    # sql = """
+    # INSERT INTO disease_observation (
+    #     site_id,
+    #     batch_id,
+    #     survey_date,
+    #     crop_variety,
+    #     growth_stage,
+    #     source_file_name,
+    #     source_row_no,
+    #     gray_incidence,
+    #     gray_index,
+    #     blight_incidence,
+    #     blight_index,
+    #     white_incidence,
+    #     white_index,
+    #     created_at,
+    #     updated_at
+    # ) VALUES (
+    #     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    # )
+    # ;
+    # """
+    #
+    # params = (
+    #     int(row["site_id"]),
+    #     int(row["batch_id"]),
+    #     normalize_date_str(row["survey_date"]),
+    #     row["crop_variety"],
+    #     row["growth_stage"],
+    #     row["source_file_name"],
+    #     int(row["source_row_no"]),
+    #     None if row["gray_incidence"] is None else float(row["gray_incidence"]),
+    #     None if row["gray_index"] is None else float(row["gray_index"]),
+    #     None if row["blight_incidence"] is None else float(row["blight_incidence"]),
+    #     None if row["blight_index"] is None else float(row["blight_index"]),
+    #     None if row["white_incidence"] is None else float(row["white_incidence"]),
+    #     None if row["white_index"] is None else float(row["white_index"]),
+    #     now_str,
+    #     now_str,
+    # )
+    #
+    # with closing(get_connection()) as conn:
+    #     with conn:
+    #         cursor = conn.execute(sql, params)
+    #         return int(cursor.lastrowid)
 
     with closing(get_connection()) as conn:
         with conn:
-            cursor = conn.execute(sql, params)
+            existing_row = conn.execute(
+                """
+                SELECT observation_id
+                FROM disease_observation
+                WHERE site_id = ?
+                  AND batch_id = ?
+                  AND survey_date = ?
+                ORDER BY observation_id DESC
+                LIMIT 1
+                ;
+                """,
+                (site_id, batch_id, survey_date),
+            ).fetchone()
+
+            if existing_row:
+                observation_id = int(existing_row["observation_id"])
+                conn.execute(
+                    """
+                    UPDATE disease_observation
+                    SET
+                        crop_variety = ?,
+                        growth_stage = ?,
+                        source_file_name = ?,
+                        source_row_no = ?,
+                        gray_incidence = ?,
+                        gray_index = ?,
+                        blight_incidence = ?,
+                        blight_index = ?,
+                        white_incidence = ?,
+                        white_index = ?,
+                        updated_at = ?
+                    WHERE observation_id = ?
+                    ;
+                    """,
+                    (
+                        row["crop_variety"],
+                        row["growth_stage"],
+                        row["source_file_name"],
+                        int(row["source_row_no"]),
+                        None if row["gray_incidence"] is None else float(row["gray_incidence"]),
+                        None if row["gray_index"] is None else float(row["gray_index"]),
+                        None if row["blight_incidence"] is None else float(row["blight_incidence"]),
+                        None if row["blight_index"] is None else float(row["blight_index"]),
+                        None if row["white_incidence"] is None else float(row["white_incidence"]),
+                        None if row["white_index"] is None else float(row["white_index"]),
+                        now_str,
+                        observation_id,
+                    ),
+                )
+                return observation_id
+
+            cursor = conn.execute(
+                """
+                INSERT INTO disease_observation (
+                    site_id,
+                    batch_id,
+                    survey_date,
+                    crop_variety,
+                    growth_stage,
+                    source_file_name,
+                    source_row_no,
+                    gray_incidence,
+                    gray_index,
+                    blight_incidence,
+                    blight_index,
+                    white_incidence,
+                    white_index,
+                    created_at,
+                    updated_at
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                ;
+                """,
+                (
+                    site_id,
+                    batch_id,
+                    survey_date,
+                    row["crop_variety"],
+                    row["growth_stage"],
+                    row["source_file_name"],
+                    int(row["source_row_no"]),
+                    None if row["gray_incidence"] is None else float(row["gray_incidence"]),
+                    None if row["gray_index"] is None else float(row["gray_index"]),
+                    None if row["blight_incidence"] is None else float(row["blight_incidence"]),
+                    None if row["blight_index"] is None else float(row["blight_index"]),
+                    None if row["white_incidence"] is None else float(row["white_incidence"]),
+                    None if row["white_index"] is None else float(row["white_index"]),
+                    now_str,
+                    now_str,
+                ),
+            )
             return int(cursor.lastrowid)
         
 def insert_disease_observation_rows(rows: list[dict[str, Any]]) -> list[int]:
@@ -1709,13 +1807,13 @@ def get_weather_data(site_id: int, days: int = 7) -> list[dict[str, Any]]:
     weather_data = []
     for row in rows:
         date, temp, humidity = row
-        # 根据湿度确定天气类型（使用文字符号确保跨平台显示）
+        # 根据湿度确定天气类型
         if humidity > 80:
-            weather_icon = '[雨]'  # 雨天
+            weather_icon = '☂'  # 雨天
         elif humidity > 50:
-            weather_icon = '[云]'  # 多云
+            weather_icon = '☁'  # 多云
         else:
-            weather_icon = '[晴]'  # 晴天
+            weather_icon = '☀'  # 晴天
         weather_data.append({
             'date': date,
             'temp': temp,

@@ -241,7 +241,7 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
     ax1.set_facecolor('#FFFFFF')
 
     # 字体颜色改为深灰/浅灰，适应白底
-    ax1.set_title('未来一周病害发病程度与天气预测', fontsize=18, fontweight='bold', color='#333333', pad=36)
+    ax1.set_title('未来一周病害发病程度与天气预测', fontsize=18, fontweight='bold', color='#333333', pad=38)
     ax1.set_xlabel('日期', fontsize=12, color='#666666')
     ax1.set_ylabel('发病程度', fontsize=12, color='#666666')
     ax2.set_ylabel('平均温度 (°C)', color='#1890FF', fontsize=12)
