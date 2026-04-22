@@ -5,8 +5,10 @@ os.environ['OMP_NUM_THREADS'] = '1'
 import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QComboBox, QPushButton,
-                             QFileDialog, QMessageBox, QGroupBox, QStackedWidget)
+                             QFileDialog, QMessageBox, QGroupBox, QStackedWidget,
+                             QSpacerItem)
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPainter, QPainterPath, QPen, QColor, QBrush
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from ui_adapter import adapter
@@ -33,24 +35,24 @@ class StepCard(QWidget):
         super().__init__(parent)
         self.setObjectName("StepCard")
         self.setProperty("class", "StepCard")
+        self.setFixedSize(200, 160)
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(8)
 
-        # 步骤编号
+        # 步骤编号 - 绿色圆形徽章
         number_label = QLabel(str(number), self)
         number_label.setObjectName("StepNumber")
         number_label.setProperty("class", "StepNumber")
         number_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(number_label)
+        number_label.setFixedSize(36, 36)
 
         # 步骤图标
         icon_label = QLabel(icon, self)
         icon_label.setObjectName("StepIcon")
         icon_label.setProperty("class", "StepIcon")
         icon_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(icon_label)
 
         # 步骤描述
         desc_label = QLabel(description, self)
@@ -58,7 +60,63 @@ class StepCard(QWidget):
         desc_label.setProperty("class", "StepDescription")
         desc_label.setAlignment(Qt.AlignCenter)
         desc_label.setWordWrap(True)
-        layout.addWidget(desc_label)
+        desc_label.setStyleSheet("font-size: 14px; line-height: 1.4;")
+
+        layout.addWidget(number_label, alignment=Qt.AlignCenter)
+        layout.addWidget(icon_label, alignment=Qt.AlignCenter)
+        layout.addWidget(desc_label, alignment=Qt.AlignCenter)
+
+
+# 连接箭头组件
+class ArrowWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(60, 40)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(QPen(QColor("#4CAF50"), 3, Qt.SolidLine, Qt.RoundCap))
+        painter.setBrush(QColor("#4CAF50"))
+
+        # 绘制箭头：直线 + 箭头头部
+        painter.drawLine(10, 20, 45, 20)
+
+        # 箭头三角形
+        path = QPainterPath()
+        path.moveTo(45, 20)
+        path.lineTo(35, 12)
+        path.lineTo(35, 28)
+        path.closeSubpath()
+        painter.drawPath(path)
+
+
+# 流程步骤组件（包含卡片和箭头）
+class StepFlowWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def setup_steps(self):
+        main_layout = QHBoxLayout(self)
+        main_layout.setAlignment(Qt.AlignCenter)
+        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+
+        steps_data = [
+            ("1", "<span style='font-size: 36px;'>📊</span>", "点击左上角【导入Excel数据】\n加载历史危害数据"),
+            ("2", "<span style='font-size: 36px;'>🔍</span>", "在下拉框选择对应的\n【预测模型】和【目标区域】"),
+            ("3", "<span style='font-size: 36px;'>▶</span>", "点击【开始预测】\n获取未来一周的疾病危害趋势图表"),
+        ]
+
+        for i, (num, icon, desc) in enumerate(steps_data):
+            card = StepCard(num, icon, desc)
+            main_layout.addWidget(card)
+
+            if i < len(steps_data) - 1:
+                arrow = ArrowWidget()
+                main_layout.addWidget(arrow)
+
+        return main_layout
 
 
 # 欢迎引导页面类
@@ -95,39 +153,18 @@ class WelcomeWidget(QWidget):
         header_layout.addWidget(title_label)
         layout.addLayout(header_layout)
 
-        # 操作步骤提示 - 卡片式引导流
-        steps_layout = QHBoxLayout()
-        steps_layout.setAlignment(Qt.AlignCenter)
-        steps_layout.setSpacing(20)
+        # 操作步骤提示 - 流程步骤组件（带连接箭头）
+        step_flow = StepFlowWidget()
+        step_flow.setup_steps()
 
-        # 步骤1
-        step1 = StepCard(
-            number="1",
-            icon="<span style='font-size: 50px;'>📊</span>",
-            description="点击左上角【导入Excel数据】加载历史危害数据"
-        )
-        step1.setStyleSheet("font-size: 20px;")
-        steps_layout.addWidget(step1)
+        # 使用响应式自适应布局：左右添加可伸缩空间
+        steps_container = QHBoxLayout()
+        steps_container.setAlignment(Qt.AlignCenter)
+        steps_container.addStretch(1)
+        steps_container.addWidget(step_flow)
+        steps_container.addStretch(1)
 
-        # 步骤2
-        step2 = StepCard(
-            number="2",
-            icon="<span style='font-size: 50px;'>🔍</span>",
-            description="在下拉框选择对应的【预测模型】和【目标区域】"
-        )
-        step2.setStyleSheet("font-size: 20px;")
-        steps_layout.addWidget(step2)
-
-        # 步骤3
-        step3 = StepCard(
-            number="3",
-            icon="<span style='font-size: 50px;'>▶</span>",
-            description="点击【开始预测】获取未来一周的疾病危害趋势图表"
-        )
-        step3.setStyleSheet("font-size: 20px;")
-        steps_layout.addWidget(step3)
-
-        layout.addLayout(steps_layout)
+        layout.addLayout(steps_container)
 
         # 底部版权信息
         footer_label = QLabel('© 2026病害预测软件', self)
@@ -143,7 +180,7 @@ class WelcomeWidget(QWidget):
         base_dir = os.path.dirname(os.path.abspath(__file__))
 
         # 2. 拼接图片的绝对路径
-        bg_path = os.path.join(base_dir, 'algorithm', 'data', 'imgs', 'background', '66.jpg')
+        bg_path = os.path.join(base_dir, 'algorithm', 'data', 'imgs', 'background', '224.jpg')
 
         # 3. 替换反斜杠
         bg_path = bg_path.replace('\\', '/')
@@ -163,23 +200,39 @@ class WelcomeWidget(QWidget):
                 color: #333333; /* 文字改回深色 */
             }}
 
-            /* 白色玻璃拟物化卡片 */
+            /* 步骤卡片 - 白色玻璃拟物化风格 */
             #myWelcomePage .StepCard {{
                 border-image: none;
-                background-color: rgba(255, 255, 255, 0.85); 
-                border: 1px solid #E0E0E0;
-                border-radius: 8px;
+                background-color: rgba(255, 255, 255, 0.90);
+                border: 2px solid #E8F5E9;
+                border-radius: 12px;
             }}
 
             #myWelcomePage .StepCard:hover {{
                 border-image: none;
-                background-color: rgba(255, 255, 255, 0.95); 
-                border: 1px solid #4CAF50;
+                background-color: rgba(255, 255, 255, 0.98);
+                border: 2px solid #4CAF50;
             }}
 
-            /* 步骤数字改为绿色 */
+            /* 步骤数字徽章 - 绿色实心圆形 */
             #myWelcomePage .StepNumber {{
-                color: #4CAF50;
+                background-color: #4CAF50;
+                color: white;
+                border-radius: 18px;
+                font-size: 18px;
+                font-weight: bold;
+            }}
+
+            /* 步骤图标 */
+            #myWelcomePage .StepIcon {{
+                background-color: transparent;
+            }}
+
+            /* 步骤描述文字 */
+            #myWelcomePage .StepDescription {{
+                color: #333333;
+                font-size: 14px;
+                background-color: transparent;
             }}
         """)
 
