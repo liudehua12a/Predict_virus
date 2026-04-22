@@ -35,7 +35,7 @@ class StepCard(QWidget):
         super().__init__(parent)
         self.setObjectName("StepCard")
         self.setProperty("class", "StepCard")
-        self.setFixedSize(220, 160)
+        self.setFixedSize(240, 160)
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
         layout.setContentsMargins(15, 15, 15, 15)
