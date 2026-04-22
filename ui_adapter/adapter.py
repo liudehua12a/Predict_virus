@@ -305,9 +305,9 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
 
         ICON_DIR = ALGORITHM_DIR / "data" / "weather"
         WEATHER_ICON_MAP = {
-            '[云]': 'cloud1.png',
-            '[雨]': 'rain1.png',
-            '[晴]': 'sun.png',
+            '☁': 'cloud1.png',
+            '☂': 'rain1.png',
+            '☀': 'sun.png',
         }
         ICON_ZOOM = 0.1
         _icon_cache = {}
