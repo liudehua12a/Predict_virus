@@ -6,8 +6,8 @@ import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QComboBox, QPushButton,
                              QFileDialog, QMessageBox, QGroupBox, QStackedWidget,
-                             QSpacerItem)
-from PyQt5.QtCore import Qt
+                             QSpacerItem, QGraphicsOpacityEffect)
+from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
 from PyQt5.QtGui import QPainter, QPainterPath, QPen, QColor, QBrush
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -35,7 +35,7 @@ class StepCard(QWidget):
         super().__init__(parent)
         self.setObjectName("StepCard")
         self.setProperty("class", "StepCard")
-        self.setFixedSize(200, 160)
+        self.setFixedSize(220, 160)
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
         layout.setContentsMargins(15, 15, 15, 15)
@@ -53,6 +53,7 @@ class StepCard(QWidget):
         icon_label.setObjectName("StepIcon")
         icon_label.setProperty("class", "StepIcon")
         icon_label.setAlignment(Qt.AlignCenter)
+        icon_label.setFixedHeight(50)
 
         # 步骤描述
         desc_label = QLabel(description, self)
@@ -117,6 +118,142 @@ class StepFlowWidget(QWidget):
                 main_layout.addWidget(arrow)
 
         return main_layout
+
+
+# 进度条弹窗类
+class ProgressDialog(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setFixedSize(400, 200)
+        self.progress_value = 0
+        self.status_texts = [
+            (0, 30, "正在加载历史数据..."),
+            (30, 80, "预测模型正在预测计算中..."),
+            (80, 100, "正在生成图表..."),
+        ]
+        self.current_status = ""
+        self._init_ui()
+
+    def _init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(15)
+
+        # 标题
+        self.title_label = QLabel("模型预测中", self)
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setStyleSheet("""
+            font-size: 20px;
+            font-weight: bold;
+            color: #1B5E20;
+            background-color: transparent;
+        """)
+
+        # 进度条容器
+        self.progress_container = QWidget(self)
+        self.progress_container.setFixedHeight(30)
+        self.progress_container.setStyleSheet("""
+            QWidget {
+                background-color: #E8F5E9;
+                border-radius: 15px;
+                border: none;
+            }
+        """)
+
+        progress_layout = QVBoxLayout(self.progress_container)
+        progress_layout.setContentsMargins(3, 3, 3, 3)
+
+        # 进度条
+        self.progress_bar = QWidget(self.progress_container)
+        self.progress_bar.setFixedHeight(24)
+        self.progress_bar.setStyleSheet("""
+            QWidget {
+                background-color: #52c41a;
+                border-radius: 12px;
+            }
+        """)
+        self.progress_bar.setFixedWidth(0)
+
+        progress_layout.addWidget(self.progress_bar)
+
+        # 百分比标签
+        self.percent_label = QLabel("0%", self)
+        self.percent_label.setAlignment(Qt.AlignCenter)
+        self.percent_label.setStyleSheet("""
+            font-size: 14px;
+            font-weight: bold;
+            color: #52c41a;
+            background-color: transparent;
+        """)
+
+        # 状态提示文字
+        self.status_label = QLabel("正在加载历史数据...", self)
+        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setStyleSheet("""
+            font-size: 14px;
+            color: #666666;
+            background-color: transparent;
+        """)
+
+        layout.addWidget(self.title_label)
+        layout.addWidget(self.progress_container)
+        layout.addWidget(self.percent_label)
+        layout.addWidget(self.status_label)
+
+    def update_progress(self, value):
+        """更新进度条"""
+        self.progress_value = min(100, max(0, value))
+        self.progress_bar.setFixedWidth(int(self.progress_container.width() * self.progress_value / 100))
+        self.percent_label.setText(f"{self.progress_value}%")
+
+        # 更新状态文字
+        for start, end, text in self.status_texts:
+            if start <= self.progress_value <= end:
+                if self.current_status != text:
+                    self.current_status = text
+                    self.status_label.setText(text)
+                break
+
+    def show_with_animation(self):
+        """显示并淡入"""
+        # 居中显示
+        if self.parent():
+            parent_rect = self.parent().geometry()
+            self.move(
+                parent_rect.center().x() - self.width() // 2,
+                parent_rect.center().y() - self.height() // 2
+            )
+
+        self.opacity_effect = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(self.opacity_effect)
+        self.opacity_effect.setOpacity(0)
+
+        self.show()
+
+        self.animation = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.animation.setDuration(300)
+        self.animation.setStartValue(0)
+        self.animation.setEndValue(1)
+        self.animation.setEasingCurve(QEasingCurve.InOutQuad)
+        self.animation.start()
+
+    def hide_with_animation(self, callback=None):
+        """淡出并隐藏"""
+        self.animation = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.animation.setDuration(300)
+        self.animation.setStartValue(1)
+        self.animation.setEndValue(0)
+        self.animation.setEasingCurve(QEasingCurve.InOutQuad)
+        self.animation.finished.connect(lambda: self._on_fade_out_finished(callback))
+        self.animation.start()
+
+    def _on_fade_out_finished(self, callback=None):
+        self.close()
+        if callback:
+            callback()
 
 
 # 欢迎引导页面类
@@ -600,6 +737,43 @@ class DiseasePredictionApp(QMainWindow):
         batch_id = selected_data["batch_id"]
         model_type = self.model_combo.currentText()
 
+        # 创建进度条弹窗
+        self.progress_dialog = ProgressDialog(self)
+        self.progress_dialog.show_with_animation()
+
+        # 保存参数
+        self._pending_prediction = {
+            "site_id": site_id,
+            "batch_id": batch_id,
+            "model_type": model_type,
+        }
+
+        # 启动进度条模拟
+        self._progress_timer = QTimer(self)
+        self._progress_timer.timeout.connect(lambda: self._update_progress_step())
+        self._progress_timer.start(10)  # 每10ms更新一次，约1秒完成
+
+        self._progress_step = 0
+        self._progress_target = 95  # 进度条先到95%
+
+    def _update_progress_step(self):
+        """逐步更新进度条"""
+        self._progress_step += 1
+        # 使用缓动曲线让进度增长更自然
+        progress = int(self._progress_target * (1 - (1 - self._progress_step / 100) ** 3))
+        self.progress_dialog.update_progress(progress)
+
+        if self._progress_step >= 100:
+            self._progress_timer.stop()
+            # 进度到达目标后，短暂停留然后执行真实预测
+            QTimer.singleShot(1, self._execute_real_prediction)
+
+    def _execute_real_prediction(self):
+        """执行真实预测逻辑"""
+        site_id = self._pending_prediction["site_id"]
+        batch_id = self._pending_prediction["batch_id"]
+        model_type = self._pending_prediction["model_type"]
+
         try:
             result = adapter.run_prediction(site_id, batch_id, model_type=model_type)
 
@@ -616,31 +790,35 @@ class DiseasePredictionApp(QMainWindow):
             print(f"model_type={model_type}")
             print(result)
 
-            # 切换到图表界面
-            self.stacked_widget.setCurrentIndex(1)
+            # 进度条到100%
+            self.progress_dialog.update_progress(100)
 
             # 保存预测结果和site_id到实例变量
             self.prediction_result = result
             self.current_site_id = site_id
 
-            # 调用可视化方法
-            self.update_visualization()
-
-            QMessageBox.information(
-                self,
-                '预测完成',
-                f"预测完成！"
-            )
+            # 短暂停留后切换页面
+            QTimer.singleShot(1, self._on_prediction_complete)
 
         except Exception as e:
             import traceback
             traceback.print_exc()
+
+            self.progress_dialog.hide_with_animation()
 
             QMessageBox.critical(
                 self,
                 '错误',
                 f"预测失败：\n{str(e)}"
             )
+
+    def _on_prediction_complete(self):
+        """预测完成，隐藏进度条并切换页面"""
+        def _do_switch():
+            self.stacked_widget.setCurrentIndex(1)
+            self.update_visualization()
+
+        self.progress_dialog.hide_with_animation(_do_switch)
 
     def update_visualization(self):
         """更新可视化图表，显示三种病害的预测结果"""
