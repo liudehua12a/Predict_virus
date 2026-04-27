@@ -1792,7 +1792,7 @@ def get_weather_data(site_id: int, days: int = 7) -> list[dict[str, Any]]:
     today = datetime.now().strftime('%Y-%m-%d')
 
     sql = """
-          SELECT date, temp_avg_c, relative_humidity
+          SELECT date, temp_avg_c, relative_humidity,precip_sum
           FROM weather_daily
           WHERE site_id = ? AND date >= ?
           ORDER BY date ASC
@@ -1806,11 +1806,11 @@ def get_weather_data(site_id: int, days: int = 7) -> list[dict[str, Any]]:
 
     weather_data = []
     for row in rows:
-        date, temp, humidity = row
+        date, temp, humidity ,rain= row
         # 根据湿度确定天气类型
-        if humidity > 80:
+        if rain >=0.1:
             weather_icon = '☂'  # 雨天
-        elif humidity > 50:
+        elif humidity >=70:
             weather_icon = '☁'  # 多云
         else:
             weather_icon = '☀'  # 晴天
