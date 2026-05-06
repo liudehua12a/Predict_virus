@@ -36,25 +36,30 @@ def get_yesterday_date(today_date: date) -> date:
 
 
 def build_last_observed_for_prediction_start(
-        site_id: int,
-        batch_id: int,
-        yesterday_date: date,
-) -> tuple[dict[str, dict[str, float] | None], str]:
+    site_id: int,
+    batch_id: int,
+    yesterday_date: date,
+) -> tuple[dict[str, dict[str, float] | None], str, float]:
     """
-    决定 online prediction 的起点 previous_targets 来源：
+    决定 online prediction 的起点 previous_targets 来源，并确定 stage_code。
 
-    优先级：
-    1. 昨天真实值（observation）
-    2. 昨天 current 预测值（prediction）
+    previous_targets 来源：
+    1. 昨天真实值 observation
+    2. 昨天 current 预测值 prediction
     3. zero_init
 
-    返回：
-    - last_observed_by_disease
-    - start_source_type: observation / prediction / zero_init
+    stage_code 来源：
+    从 site_id + batch_id 在 yesterday 及以前最近一次真实调查记录中读取 growth_stage。
+    例如 growth_stage=V10，则 stage_code=10.0。
     """
     yesterday_str = yesterday_date.strftime("%Y-%m-%d")
 
-    # 1) 优先查昨天真实值
+    stage_code = storage.get_latest_stage_code_on_or_before_date(
+        site_id=site_id,
+        batch_id=batch_id,
+        survey_date=yesterday_str,
+    )
+
     observation_row = storage.get_latest_observation_on_or_before_date(
         site_id=site_id,
         batch_id=batch_id,
@@ -65,9 +70,9 @@ def build_last_observed_for_prediction_start(
         return (
             storage.build_last_observed_by_disease_from_observation(observation_row),
             "observation",
+            stage_code,
         )
 
-    # 2) 没有昨天真实值，再查昨天 current 预测值
     prediction_row = storage.get_current_prediction_by_date(
         site_id=site_id,
         batch_id=batch_id,
@@ -79,9 +84,9 @@ def build_last_observed_for_prediction_start(
         return (
             storage.build_last_observed_by_disease_from_prediction(prediction_row),
             "prediction",
+            stage_code,
         )
 
-    # 3) 都没有，则 zero_init
     return (
         {
             "gray": None,
@@ -89,6 +94,7 @@ def build_last_observed_for_prediction_start(
             "white": None,
         },
         "zero_init",
+        stage_code,
     )
 
 
@@ -165,7 +171,7 @@ def run_online_prediction_for_today(
         forecast_days=forecast_days,
     )
 
-    last_observed_by_disease, start_source_type = build_last_observed_for_prediction_start(
+    last_observed_by_disease, start_source_type, stage_code = build_last_observed_for_prediction_start(
         site_id=site_id,
         batch_id=batch_id,
         yesterday_date=yesterday_date,
@@ -178,6 +184,7 @@ def run_online_prediction_for_today(
         forecast_daily_rows=forecast_daily_rows,
         predict_dates=predict_dates,
         history_end_date_str=history_end_date_str,
+        stage_code=stage_code,
         last_observed_by_disease=last_observed_by_disease,
     )
 
@@ -190,6 +197,7 @@ def run_online_prediction_for_today(
         "forecast_end_date": forecast_end_date_str,
         "predict_dates": predict_dates,
         "start_source_type": start_source_type,
+        "stage_code": stage_code,
         "prediction_run_id": all_output["prediction_run_id"],
         "results_by_disease": all_output["results_by_disease"],
     }

@@ -243,6 +243,7 @@ def validate_model_row_features(row: dict[str, Any]) -> None:
 def build_online_panel_rows(
     continuous_daily_rows: list[dict[str, Any]],
     site_id: int,
+    stage_code: float,
 ) -> list[dict[str, Any]]:
     """
     将连续日天气表转成在线预测使用的 panel_rows 基础结构。
@@ -258,6 +259,7 @@ def build_online_panel_rows(
                 "date": parse_date(row["date"]),
                 "record_id": idx,
                 "replicate_id_same_day": 1,
+                "stage_code": float(stage_code),
                 "stage_code": 0.0,
                 "gray_incidence": None,
                 "gray_index": None,
@@ -316,6 +318,7 @@ def build_future_prediction_rows(
     forecast_daily_rows: list[dict[str, Any]],
     site_id: int,
     predict_dates: list[str],
+    stage_code: float,
 ) -> list[dict[str, Any]]:
     """
     构造未来待预测日期对应的完整样本行。
@@ -337,6 +340,7 @@ def build_future_prediction_rows(
     panel_rows = build_online_panel_rows(
         continuous_daily_rows=continuous_daily_rows,
         site_id=site_id,
+        stage_code=stage_code,
     )
 
     site_rows = fe.add_process_features(

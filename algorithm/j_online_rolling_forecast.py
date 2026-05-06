@@ -141,6 +141,7 @@ def prepare_and_rolling_forecast(
     forecast_daily_rows: list[dict[str, Any]],
     site_id: int,
     predict_dates: list[str],
+    stage_code: float,
     last_observed_values: dict[str, float] | None = None,
 ) -> list[dict[str, Any]]:
     """
@@ -153,6 +154,7 @@ def prepare_and_rolling_forecast(
         forecast_daily_rows=forecast_daily_rows,
         site_id=site_id,
         predict_dates=predict_dates,
+        stage_code=stage_code,
     )
 
     return rolling_forecast_next_n_days(
@@ -211,6 +213,7 @@ def run_single_disease_prediction_and_save(
     predict_dates: list[str],
     history_end_date_str: str,
     prediction_run_id: str,
+    stage_code: float,
     last_observed_values: dict[str, float] | None = None,
     allow_insert: bool = False,
 ) -> list[dict[str, Any]]:
@@ -229,6 +232,7 @@ def run_single_disease_prediction_and_save(
         forecast_daily_rows=forecast_daily_rows,
         site_id=site_id,
         predict_dates=predict_dates,
+        stage_code=stage_code,
         last_observed_values=last_observed_values,
     )
 
@@ -257,6 +261,7 @@ def run_all_diseases_prediction_and_save(
     forecast_daily_rows: list[dict[str, Any]],
     predict_dates: list[str],
     history_end_date_str: str,
+    stage_code: float,
     last_observed_by_disease: dict[str, dict[str, float] | None] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """
@@ -291,6 +296,7 @@ def run_all_diseases_prediction_and_save(
             predict_dates=predict_dates,
             history_end_date_str=history_end_date_str,
             prediction_run_id=prediction_run_id,
+            stage_code=stage_code,
             last_observed_values=disease_last_observed,
             allow_insert=allow_insert,
         )
@@ -391,6 +397,8 @@ def rebuild_predictions_after_observation(
         observation_row
     )
 
+    stage_code = storage.growth_stage_to_code(observation_row.get("growth_stage"))
+
     # Step 4: 先把从 next_start_date 开始的旧 current 版本失效
     storage.disable_current_predictions_from_date(
         site_id=site_id,
@@ -407,6 +415,7 @@ def rebuild_predictions_after_observation(
         forecast_daily_rows=forecast_daily_rows,
         predict_dates=predict_dates,
         history_end_date_str=observation_row["survey_date"],
+        stage_code=stage_code,
         last_observed_by_disease=last_observed_by_disease,
     )
 

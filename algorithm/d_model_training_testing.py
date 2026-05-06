@@ -230,6 +230,10 @@ def load_bundle(save_path: str | Path) -> dict[str, Any]:
         "output_alphas": np.asarray(payload["output_alphas"], dtype=np.float32),
         "monotonic_flags": payload["monotonic_flags"],
         "xgb_models": payload.get("xgb_models"),
+
+        "seq_features": payload.get("seq_features", list(cfg.SEQ_FEATURES)),
+        "base_model_features": payload.get("base_model_features", list(cfg.BASE_MODEL_FEATURES)),
+        "lookback_days": payload.get("lookback_days", int(cfg.LOOKBACK_DAYS)),
     }
 
 
@@ -237,7 +241,9 @@ def predict_row(bundle: dict[str, Any], row: dict[str, Any], previous_targets: n
     if isinstance(bundle, dict) and "models" in bundle and "imputers" in bundle and "scalers" in bundle:
         return _predict_row_xgboost_bundle(bundle, row, previous_targets)
 
-    tab_values = [fe.fill_none(row[name]) for name in cfg.BASE_MODEL_FEATURES] + previous_targets.tolist()
+    base_model_features = bundle.get("base_model_features", list(cfg.BASE_MODEL_FEATURES))
+
+    tab_values = [fe.fill_none(row[name]) for name in base_model_features] + previous_targets.tolist()
     seq = row["weather_seq_21"].astype(np.float32)
     tab = np.asarray(tab_values, dtype=np.float32)
     seq_scaled, tab_scaled = fe.apply_scalers(seq[None, ...], tab[None, ...], bundle["scalers"])
