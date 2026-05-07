@@ -133,7 +133,7 @@ def map_excel_row_to_observation_record(
         "batch_id": int(site_batch_row["batch_id"]),
         "survey_date": normalize_date_value(excel_row["date"]),
         "crop_variety": None if excel_row.get("crop_variety") is None else str(excel_row.get("crop_variety")).strip(),
-        "growth_stage": None if excel_row.get("growth_stage") is None else str(excel_row.get("growth_stage")).strip(),
+        "growth_stage": None if excel_row.get("growth_stage") is None else str(excel_row.get("growth_stage")).strip().upper(),
         "source_file_name": excel_row["_source_file_name"],
         "source_row_no": int(excel_row["_source_row_no"]),
 

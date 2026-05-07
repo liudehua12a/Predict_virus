@@ -163,7 +163,7 @@ FEATURE_LABELS = {
     "soil_rel_humidity": "原始_0-10cm土壤相对湿度",
     "soil_temp_c": "原始_5cm土壤温度(℃)",
     # "sample_count": "重复数",
-    # "stage_code": "生育期编码",
+    "stage_code": "生育期编码",
     # "days_since_first": "距首次调查天数",
     # "days_since_prev": "距上次调查天数",
     # "survey_order": "调查序号",
@@ -290,6 +290,8 @@ SEQ_FEATURES = [
 ]
 
 BASE_MODEL_FEATURES = [
+    "stage_code",
+
     "gdd_cum",
     "rain_21d_sum","rain_7d_sum","rain_14d_sum",
     "rainy_streak_days","rain_gap_days",
