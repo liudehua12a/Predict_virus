@@ -11,7 +11,8 @@ import h_qweather_api as weather_api
 # ======分区1：连接与基础工具======
 # ===== 数据库文件路径 =====
 
-DB_PATH = Path("./algorithm/data/nky-CornPre.db")
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = BASE_DIR / "data" / "nky-CornPre.db"
 DATA_SOURCE_PRIORITY = {
     "mock": 1,
     "forecast_daily": 2,
@@ -1247,51 +1248,104 @@ def insert_disease_observation_row(row: dict[str, Any]) -> int:
             raise ValueError(f"disease_observation 入库缺少字段: {field_name}")
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    sql = """
-    INSERT INTO disease_observation (
-        site_id,
-        batch_id,
-        survey_date,
-        crop_variety,
-        growth_stage,
-        source_file_name,
-        source_row_no,
-        gray_incidence,
-        gray_index,
-        blight_incidence,
-        blight_index,
-        white_incidence,
-        white_index,
-        created_at,
-        updated_at
-    ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-    )
-    ;
-    """
-
-    params = (
-        int(row["site_id"]),
-        int(row["batch_id"]),
-        normalize_date_str(row["survey_date"]),
-        row["crop_variety"],
-        row["growth_stage"],
-        row["source_file_name"],
-        int(row["source_row_no"]),
-        None if row["gray_incidence"] is None else float(row["gray_incidence"]),
-        None if row["gray_index"] is None else float(row["gray_index"]),
-        None if row["blight_incidence"] is None else float(row["blight_incidence"]),
-        None if row["blight_index"] is None else float(row["blight_index"]),
-        None if row["white_incidence"] is None else float(row["white_incidence"]),
-        None if row["white_index"] is None else float(row["white_index"]),
-        now_str,
-        now_str,
-    )
+    site_id = int(row["site_id"])
+    batch_id = int(row["batch_id"])
+    survey_date = normalize_date_str(row["survey_date"])
 
     with closing(get_connection()) as conn:
         with conn:
-            cursor = conn.execute(sql, params)
+            existing_row = conn.execute(
+                """
+                SELECT observation_id
+                FROM disease_observation
+                WHERE site_id = ?
+                  AND batch_id = ?
+                  AND survey_date = ?
+                ORDER BY observation_id DESC
+                LIMIT 1
+                ;
+                """,
+                (site_id, batch_id, survey_date),
+            ).fetchone()
+
+            if existing_row:
+                observation_id = int(existing_row["observation_id"])
+                conn.execute(
+                    """
+                    UPDATE disease_observation
+                    SET
+                        crop_variety = ?,
+                        growth_stage = ?,
+                        source_file_name = ?,
+                        source_row_no = ?,
+                        gray_incidence = ?,
+                        gray_index = ?,
+                        blight_incidence = ?,
+                        blight_index = ?,
+                        white_incidence = ?,
+                        white_index = ?,
+                        updated_at = ?
+                    WHERE observation_id = ?
+                    ;
+                    """,
+                    (
+                        row["crop_variety"],
+                        row["growth_stage"],
+                        row["source_file_name"],
+                        int(row["source_row_no"]),
+                        None if row["gray_incidence"] is None else float(row["gray_incidence"]),
+                        None if row["gray_index"] is None else float(row["gray_index"]),
+                        None if row["blight_incidence"] is None else float(row["blight_incidence"]),
+                        None if row["blight_index"] is None else float(row["blight_index"]),
+                        None if row["white_incidence"] is None else float(row["white_incidence"]),
+                        None if row["white_index"] is None else float(row["white_index"]),
+                        now_str,
+                        observation_id,
+                    ),
+                )
+                return observation_id
+
+            cursor = conn.execute(
+                """
+                INSERT INTO disease_observation (
+                    site_id,
+                    batch_id,
+                    survey_date,
+                    crop_variety,
+                    growth_stage,
+                    source_file_name,
+                    source_row_no,
+                    gray_incidence,
+                    gray_index,
+                    blight_incidence,
+                    blight_index,
+                    white_incidence,
+                    white_index,
+                    created_at,
+                    updated_at
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                ;
+                """,
+                (
+                    site_id,
+                    batch_id,
+                    survey_date,
+                    row["crop_variety"],
+                    row["growth_stage"],
+                    row["source_file_name"],
+                    int(row["source_row_no"]),
+                    None if row["gray_incidence"] is None else float(row["gray_incidence"]),
+                    None if row["gray_index"] is None else float(row["gray_index"]),
+                    None if row["blight_incidence"] is None else float(row["blight_incidence"]),
+                    None if row["blight_index"] is None else float(row["blight_index"]),
+                    None if row["white_incidence"] is None else float(row["white_incidence"]),
+                    None if row["white_index"] is None else float(row["white_index"]),
+                    now_str,
+                    now_str,
+                ),
+            )
             return int(cursor.lastrowid)
         
 def insert_disease_observation_rows(rows: list[dict[str, Any]]) -> list[int]:
@@ -1332,6 +1386,68 @@ def get_latest_observation_on_or_before_date(
         ).fetchone()
 
     return dict(row) if row else None
+
+def growth_stage_to_code(growth_stage: Any) -> float:
+    """
+    将 disease_observation.growth_stage 转成模型使用的 stage_code。
+
+    当前 Excel 模板中的 growth_stage 是生育期编码，例如：
+    V1, V2, V3, ..., V10
+
+    规则：
+    - V10 -> 10.0
+    - V8  -> 8.0
+    - 10  -> 10.0
+    """
+    if growth_stage is None:
+        raise ValueError("growth_stage 为空，无法生成 stage_code。")
+
+    text = str(growth_stage).strip().upper()
+    if text == "":
+        raise ValueError("growth_stage 为空字符串，无法生成 stage_code。")
+
+    # 支持 Excel 填 V10 / V8 / V3
+    if text.startswith("V"):
+        number_part = text[1:]
+        if number_part.isdigit():
+            return float(number_part)
+
+    # 支持 Excel 直接填 10 / 8 / 3
+    if text.isdigit():
+        return float(text)
+
+    raise ValueError(
+        f"无法识别的 growth_stage: {growth_stage}。"
+        "当前支持格式：V1、V2、...、V10，或直接填写数字 1、2、...、10。"
+    )
+
+
+def get_latest_stage_code_on_or_before_date(
+    site_id: int,
+    batch_id: int,
+    survey_date: str,
+) -> float:
+    """
+    查询 site_id + batch_id 在指定日期及以前最近一次真实调查记录，
+    读取其中的 growth_stage，并转换成 stage_code。
+
+    例如：
+    disease_observation.growth_stage = V10
+    返回 stage_code = 10.0
+    """
+    observation_row = get_latest_observation_on_or_before_date(
+        site_id=site_id,
+        batch_id=batch_id,
+        survey_date=survey_date,
+    )
+
+    if not observation_row:
+        raise ValueError(
+            f"无法生成 stage_code：没有找到真实调查记录。"
+            f"site_id={site_id}, batch_id={batch_id}, survey_date<={survey_date}"
+        )
+
+    return growth_stage_to_code(observation_row.get("growth_stage"))
 
 
 # =====分区5：真实值/预测值转换与冲突 相关=====
@@ -1721,3 +1837,30 @@ def get_weather_data(site_id: int, days: int = 7) -> list[dict[str, Any]]:
         })
 
     return weather_data
+
+
+def get_data_staleness_threshold() -> int:
+    """从配置文件读取数据时效阈值（默认7天）"""
+    import configparser
+    ROOT_DIR = Path(__file__).resolve().parent.parent
+    _CONFIG_PATH = ROOT_DIR / "algorithm" / "data" / "config.ini"
+    cfg = configparser.ConfigParser()
+    cfg.read(str(_CONFIG_PATH))
+    try:
+        return cfg.getint("data_management", "days_diff")
+    except Exception:
+        return 7
+
+
+def set_data_staleness_threshold(value: int) -> None:
+    """写入数据时效阈值到配置文件"""
+    import configparser
+    ROOT_DIR = Path(__file__).resolve().parent.parent
+    _CONFIG_PATH = ROOT_DIR / "algorithm" / "data" / "config.ini"
+    cfg = configparser.ConfigParser()
+    cfg.read(str(_CONFIG_PATH))
+    if "data_management" not in cfg:
+        cfg["data_management"] = {}
+    cfg["data_management"]["days_diff"] = str(value)
+    with open(str(_CONFIG_PATH), "w") as f:
+        cfg.write(f)
