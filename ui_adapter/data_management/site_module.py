@@ -75,6 +75,9 @@ class SiteManagementModule(ManagementModule):
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         # 操作列根据内容（按钮）自动调整宽度，防止被挤压
         self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
+        self.table.setColumnWidth(6, 120)  # 强制操作列最小宽度确保按钮完整显示
+
+
 
         layout.addWidget(self.table)
 

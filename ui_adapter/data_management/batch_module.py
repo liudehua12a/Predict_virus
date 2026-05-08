@@ -38,7 +38,8 @@ class BatchManagementModule(ManagementModule):
         left_layout.setSpacing(4)
 
         add_site_btn = QPushButton("➕ 新增站点")
-        add_site_btn.setStyleSheet("background-color: #4CAF50; color: white; border: none; padding: 6px; border-radius: 4px;")
+        add_site_btn.setStyleSheet(
+            "background-color: #4CAF50; color: white; border: none; padding: 6px; border-radius: 4px;")
         add_site_btn.clicked.connect(self._on_add_site)
         left_layout.addWidget(add_site_btn)
 
@@ -77,7 +78,8 @@ class BatchManagementModule(ManagementModule):
         toolbar.addStretch()
 
         add_batch_btn = QPushButton("➕ 新增批次")
-        add_batch_btn.setStyleSheet("background-color: #4CAF50; color: white; border: none; padding: 6px 12px; border-radius: 4px;")
+        add_batch_btn.setStyleSheet(
+            "background-color: #4CAF50; color: white; border: none; padding: 6px 12px; border-radius: 4px;")
         add_batch_btn.clicked.connect(self._on_add_batch)
         toolbar.addWidget(add_batch_btn)
 
@@ -101,7 +103,12 @@ class BatchManagementModule(ManagementModule):
                 color: #334155;
             }
         """)
+
+        # 【修改点 1】第一列自动拉伸，最后一列操作列根据内容大小调整
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
+        self.table.setColumnWidth(6, 120)  # 强制操作列最小宽度确保按钮完整显示
+
         right_layout.addWidget(self.table)
 
         main_layout.addWidget(left_panel, 1)
@@ -115,9 +122,11 @@ class BatchManagementModule(ManagementModule):
         conn = sqlite3.connect(str(DB_PATH))
         conn.row_factory = sqlite3.Row
         rows = conn.execute("""
-            SELECT site_id, site_name FROM site_info
-            WHERE is_active = 1 ORDER BY site_id ASC
-        """).fetchall()
+                            SELECT site_id, site_name
+                            FROM site_info
+                            WHERE is_active = 1
+                            ORDER BY site_id ASC
+                            """).fetchall()
         conn.close()
 
         self._site_rows = [dict(r) for r in rows]
@@ -153,12 +162,18 @@ class BatchManagementModule(ManagementModule):
         conn = sqlite3.connect(str(DB_PATH))
         conn.row_factory = sqlite3.Row
         rows = conn.execute("""
-            SELECT batch_id, batch_name, batch_code, crop_variety,
-                   sowing_date, survey_start_date, survey_end_date
-            FROM survey_batch
-            WHERE site_id = ? AND is_active = 1
-            ORDER BY batch_id ASC
-        """, (site_id,)).fetchall()
+                            SELECT batch_id,
+                                   batch_name,
+                                   batch_code,
+                                   crop_variety,
+                                   sowing_date,
+                                   survey_start_date,
+                                   survey_end_date
+                            FROM survey_batch
+                            WHERE site_id = ?
+                              AND is_active = 1
+                            ORDER BY batch_id ASC
+                            """, (site_id,)).fetchall()
         conn.close()
 
         self.table.setRowCount(len(rows))
@@ -170,24 +185,51 @@ class BatchManagementModule(ManagementModule):
             self.table.setItem(i, 4, QTableWidgetItem(row["survey_start_date"] or ""))
             self.table.setItem(i, 5, QTableWidgetItem(row["survey_end_date"] or ""))
 
+            # 【修改点 2】优化按钮布局
             btn_widget = QWidget()
             btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(0, 0, 0, 0)
-            btn_layout.setSpacing(2)
+            btn_layout.setContentsMargins(4, 2, 4, 2)  # 增加内边距
+            btn_layout.setSpacing(8)  # 增加间距
+            btn_layout.setAlignment(Qt.AlignCenter)  # 居中对齐
 
+            # 编辑按钮
             edit_btn = QPushButton("编辑")
-            edit_btn.setStyleSheet("padding: 2px 4px; font-size: 12px;")
+            edit_btn.setMinimumWidth(45)
+            edit_btn.setStyleSheet("""
+                QPushButton {
+                    padding: 4px 8px; 
+                    font-size: 12px; 
+                    border: 1px solid #CBD5E1; 
+                    border-radius: 4px;
+                    background-color: white;
+                    color: #334155;
+                }
+                QPushButton:hover { background-color: #F8FAFC; }
+            """)
             edit_btn.clicked.connect(lambda _, r=dict(row), s=self.site_label.text(): self._on_edit(r, s))
 
+            # 删除按钮
             del_btn = QPushButton("删除")
-            del_btn.setStyleSheet("padding: 2px 4px; font-size: 12px;")
+            del_btn.setMinimumWidth(45)
+            del_btn.setStyleSheet("""
+                QPushButton {
+                    padding: 4px 8px; 
+                    font-size: 12px; 
+                    border: 1px solid #CBD5E1; 
+                    border-radius: 4px;
+                    background-color: white;
+                    color: #EF4444;
+                }
+                QPushButton:hover { background-color: #FEF2F2; }
+            """)
             del_btn.clicked.connect(lambda _, r=dict(row): self._on_delete(r))
 
             btn_layout.addWidget(edit_btn)
             btn_layout.addWidget(del_btn)
-            btn_layout.addStretch()
+            # 取消掉原有的 btn_layout.addStretch()
+
             self.table.setCellWidget(i, 6, btn_widget)
-            self.table.setRowHeight(i, 36)
+            self.table.setRowHeight(i, 40)  # 将行高从36调大到40，让按钮显示更舒适
 
     def _on_add_site(self):
         dlg = SiteEditDialog(self)
