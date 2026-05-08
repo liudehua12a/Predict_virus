@@ -104,10 +104,10 @@ class BatchManagementModule(ManagementModule):
             }
         """)
 
-        # 【修改点 1】第一列自动拉伸，最后一列操作列根据内容大小调整
+        # 【修改点 1】第一列自动拉伸，操作列固定最小宽度
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
         self.table.setColumnWidth(6, 120)  # 强制操作列最小宽度确保按钮完整显示
+        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Fixed)
 
         right_layout.addWidget(self.table)
 

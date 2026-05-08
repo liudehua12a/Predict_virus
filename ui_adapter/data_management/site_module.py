@@ -73,9 +73,9 @@ class SiteManagementModule(ManagementModule):
         # 【修改点 1】设置列宽调整策略
         # 站点名称列自动拉伸填满空白
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        # 操作列根据内容（按钮）自动调整宽度，防止被挤压
-        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
+        # 操作列固定宽度
         self.table.setColumnWidth(6, 120)  # 强制操作列最小宽度确保按钮完整显示
+        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Fixed)
 
 
 
