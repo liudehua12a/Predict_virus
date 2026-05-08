@@ -12,6 +12,9 @@ from PyQt5.QtGui import QPainter, QPainterPath, QPen, QColor, QBrush
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from ui_adapter import adapter
+from ui_adapter.data_management.window import DataManagementWindow
+from ui_adapter.data_management.site_module import SiteManagementModule
+from ui_adapter.data_management.batch_module import BatchManagementModule
 
 
 def ensure_qt_platform_plugin_path():
@@ -508,6 +511,13 @@ class DiseasePredictionApp(QMainWindow):
         self.import_btn.clicked.connect(self.import_excel)
         top_layout.addWidget(self.import_btn)
 
+        # 数据管理按钮
+        self.data_mgmt_btn = QPushButton('🗂️ 数据管理')
+        self.data_mgmt_btn.setStyleSheet("font-size:14px;")
+        self.data_mgmt_btn.setObjectName("dataMgmtBtn")
+        self.data_mgmt_btn.clicked.connect(self.open_data_management)
+        top_layout.addWidget(self.data_mgmt_btn)
+
         # 模型选择
         model_layout = QHBoxLayout()
         model_layout.setSpacing(8)
@@ -618,6 +628,12 @@ class DiseasePredictionApp(QMainWindow):
                     "batch_name": row["batch_name"],
                 }
             )
+
+    def open_data_management(self):
+        window = DataManagementWindow(self)
+        window.register_module(SiteManagementModule())
+        window.register_module(BatchManagementModule())
+        window.exec_()
 
     def import_excel(self):
         """弹出选择对话框：下载模板或直接导入"""
