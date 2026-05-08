@@ -172,19 +172,20 @@ class BatchManagementModule(ManagementModule):
 
             btn_widget = QWidget()
             btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(2, 2, 2, 2)
-            btn_layout.setSpacing(4)
+            btn_layout.setContentsMargins(0, 0, 0, 0)
+            btn_layout.setSpacing(2)
 
             edit_btn = QPushButton("编辑")
-            edit_btn.setFixedWidth(50)
+            edit_btn.setStyleSheet("padding: 2px 4px; font-size: 12px;")
             edit_btn.clicked.connect(lambda _, r=dict(row), s=self.site_label.text(): self._on_edit(r, s))
 
             del_btn = QPushButton("删除")
-            del_btn.setFixedWidth(50)
+            del_btn.setStyleSheet("padding: 2px 4px; font-size: 12px;")
             del_btn.clicked.connect(lambda _, r=dict(row): self._on_delete(r))
 
             btn_layout.addWidget(edit_btn)
             btn_layout.addWidget(del_btn)
+            btn_layout.addStretch()
             self.table.setCellWidget(i, 6, btn_widget)
             self.table.setRowHeight(i, 36)
 
