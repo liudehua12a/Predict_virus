@@ -112,12 +112,12 @@ class SiteManagementModule(ManagementModule):
             btn_layout.setContentsMargins(2, 2, 2, 2)
             btn_layout.setSpacing(4)
 
-            edit_btn = QPushButton("✏️")
-            edit_btn.setFixedWidth(40)
+            edit_btn = QPushButton("编辑")
+            edit_btn.setFixedWidth(50)
             edit_btn.clicked.connect(lambda _, r=row: self._on_edit(r))
 
-            del_btn = QPushButton("🗑️")
-            del_btn.setFixedWidth(40)
+            del_btn = QPushButton("删除")
+            del_btn.setFixedWidth(50)
             del_btn.clicked.connect(lambda _, r=row: self._on_delete(r))
 
             btn_layout.addWidget(edit_btn)
