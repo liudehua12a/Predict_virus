@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
     QTableWidgetItem, QPushButton, QLineEdit, QHeaderView,
-    QMessageBox, QComboBox, QLabel
+    QMessageBox
 )
 from PyQt5.QtCore import Qt
 import sqlite3
@@ -45,22 +45,6 @@ class SiteManagementModule(ManagementModule):
         toolbar.addWidget(add_btn)
         toolbar.addStretch()
 
-        toolbar.addWidget(QLabel("数据时效:"))
-        self.threshold_combo = QComboBox()
-        self.threshold_combo.addItems(["3天", "7天"])
-        self.threshold_combo.setCurrentText("7天")
-        self.threshold_combo.setStyleSheet("""
-            QComboBox {
-                padding: 4px 8px;
-                font-size: 12px;
-                border: 1px solid #CBD5E1;
-                border-radius: 4px;
-                background: white;
-            }
-        """)
-        self.threshold_combo.currentTextChanged.connect(self._on_threshold_changed)
-        toolbar.addWidget(self.threshold_combo)
-
         layout.addLayout(toolbar)
 
         # 表格
@@ -95,11 +79,6 @@ class SiteManagementModule(ManagementModule):
         layout.addWidget(self.table)
 
     def refresh(self):
-        from algorithm.k_weather_data_storage import get_data_staleness_threshold
-        current = get_data_staleness_threshold()
-        self.threshold_combo.blockSignals(True)
-        self.threshold_combo.setCurrentText("3天" if current == 3 else "7天")
-        self.threshold_combo.blockSignals(False)
         self._load_data()
 
     def _load_data(self):
@@ -194,11 +173,6 @@ class SiteManagementModule(ManagementModule):
         if dlg.exec_():
             self.refresh()
             self.data_changed.emit(self.MODULE_ID, row["site_id"], "update")
-
-    def _on_threshold_changed(self, text):
-        value = 3 if text == "3天" else 7
-        from algorithm.k_weather_data_storage import set_data_staleness_threshold
-        set_data_staleness_threshold(value)
 
     def _on_delete(self, row):
         reply = QMessageBox.question(
