@@ -15,6 +15,7 @@ from ui_adapter import adapter
 from ui_adapter.data_management.window import DataManagementWindow
 from ui_adapter.data_management.site_module import SiteManagementModule
 from ui_adapter.data_management.batch_module import BatchManagementModule
+from ui_adapter.data_management.staleness_module import DataStalenessModule
 
 
 def ensure_qt_platform_plugin_path():
@@ -633,6 +634,7 @@ class DiseasePredictionApp(QMainWindow):
         window = DataManagementWindow(self)
         window.register_module(SiteManagementModule())
         window.register_module(BatchManagementModule())
+        window.register_module(DataStalenessModule())
         window.exec_()
 
     def import_excel(self):
