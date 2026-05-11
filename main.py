@@ -3,6 +3,7 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 os.environ['OMP_NUM_THREADS'] = '1'
 import sys
+import torch
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QComboBox, QPushButton,
                              QFileDialog, QMessageBox, QGroupBox, QStackedWidget,
@@ -79,6 +80,9 @@ class ArrowWidget(QWidget):
         self.setFixedSize(60, 40)
 
     def paintEvent(self, event):
+        # 兜底导入，避免运行时出现 QPainter 未定义
+        from PyQt5.QtGui import QPainter, QPainterPath, QPen, QColor
+
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(QPen(QColor("#4CAF50"), 3, Qt.SolidLine, Qt.RoundCap))
@@ -824,10 +828,20 @@ class DiseasePredictionApp(QMainWindow):
 
             self.progress_dialog.hide_with_animation()
 
+            message = str(e)
+            if isinstance(e, OSError) and "c10.dll" in message:
+                message = (
+                    "PyTorch DLL 加载失败（c10.dll）。\n"
+                    "请确认安装的是与当前 Python/系统匹配的 PyTorch 版本，"
+                    "并确保已安装 VC++ 运行库。"
+                )
+            elif isinstance(e, ValueError) and "未来预报日表" in message:
+                message = f"{message}\n请先执行 forecast 入库。"
+
             QMessageBox.critical(
                 self,
                 '错误',
-                f"预测失败：\n{str(e)}"
+                f"预测失败：\n{message}"
             )
 
     def _on_prediction_complete(self):
