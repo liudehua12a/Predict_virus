@@ -69,7 +69,7 @@ def add_process_features(panel_rows: list[dict[str, Any]], weather_by_site: dict
             row["rain_7d_sum"] = float(arrays["precip_sum"][window_7].sum())
             row["rain_14d_sum"] = float(arrays["precip_sum"][window_14].sum())
             row["rain_21d_sum"] = float(arrays["precip_sum"][window_21].sum())
-            row
+            row["rain_28d_sum"] = float(arrays["precip_sum"][window_28].sum())
             row["rainy_streak_days"] = float(arrays["rainy_streak_days"][current_idx])
             row["rain_gap_days"] = float(arrays["rain_gap_days"][current_idx])
             # row["temp_3d_mean"] = float(arrays["temp_avg_c"][window_3].mean())
