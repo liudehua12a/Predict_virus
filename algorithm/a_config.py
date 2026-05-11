@@ -39,6 +39,7 @@ ONLINE_MODEL_TYPE = "LSTM"
 
 # [01.4] ===== 训练参数与设备配置 =====
 LOOKBACK_DAYS = 21
+MAX_PROCESS_WINDOW_DAYS = 28
 RANDOM_SEED = 20260306
 DEVICE = torch.device("cpu")
 torch.set_num_threads(1)
@@ -172,6 +173,7 @@ FEATURE_LABELS = {
     "rain_7d_sum": "累计降水_7d(mm)",
     "rain_14d_sum": "累计降水_14d(mm)",
     "rain_21d_sum": "累计降水_21d(mm)",
+    "rain_28d_sum": "累计降水_28d(mm)",
     "rainy_streak_days": "连续降雨天数",
     "rain_gap_days": "降雨间歇长度(天)",
 
@@ -179,17 +181,20 @@ FEATURE_LABELS = {
     "temp_7d_mean": "平均气温℃_7d",
     "temp_14d_mean": "平均气温℃_14d",
     "temp_21d_mean": "平均气温℃_21d",
+    "temp_28d_mean": "平均气温℃_28d",
     "temp_range_24h_c": "24h温差℃",
 
     "rh_3d_mean": "平均相对湿度_3d",
     "rh_7d_mean": "平均相对湿度_7d",
     "rh_14d_mean": "平均相对湿度_14d",
     "rh_21d_mean": "平均相对湿度_21d",
+    "rh_28d_mean": "平均相对湿度_28d",
     "humidity_range_daily": "湿度日较差",
     
     "soil_rel_humidity_7d_mean": "平均土壤相对湿度_7d",
     "soil_rel_humidity_14d_mean": "平均土壤相对湿度_14d",
     "soil_rel_humidity_21d_mean": "平均土壤相对湿度_21d",
+    "soil_rel_humidity_28d_mean": "平均土壤相对湿度_28d",
     
 
     "radiation_7d_mean": "平均短波辐射_7d",
@@ -293,16 +298,16 @@ BASE_MODEL_FEATURES = [
     "stage_code",
 
     "gdd_cum",
-    "rain_21d_sum","rain_7d_sum","rain_14d_sum",
+    "rain_21d_sum","rain_7d_sum","rain_14d_sum","rain_28d_sum",
     "rainy_streak_days","rain_gap_days",
 
-    "temp_21d_mean","temp_7d_mean","temp_14d_mean",
+    "temp_21d_mean","temp_7d_mean","temp_14d_mean","temp_28d_mean",
     "temp_range_24h_c",
 
-    "rh_21d_mean","rh_7d_mean","rh_14d_mean",
+    "rh_21d_mean","rh_7d_mean","rh_14d_mean","rh_28d_mean",
     "humidity_range_daily",
 
-    "soil_rel_humidity_14d_mean","soil_rel_humidity_7d_mean","soil_rel_humidity_21d_mean",
+    "soil_rel_humidity_14d_mean","soil_rel_humidity_7d_mean","soil_rel_humidity_21d_mean","soil_rel_humidity_28d_mean",
 
     "wind_7d_mean",
     "is_weak_wind_day",

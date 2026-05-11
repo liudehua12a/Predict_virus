@@ -61,6 +61,7 @@ def add_process_features(panel_rows: list[dict[str, Any]], weather_by_site: dict
             window_7 = slice(max(0, current_idx - 6), current_idx + 1)
             window_14 = slice(max(0, current_idx - 13), current_idx + 1)
             window_21 = slice(max(0, current_idx - 20), current_idx + 1)
+            window_28 = slice(max(0, current_idx - 27), current_idx + 1)
             cumulative = slice(0, current_idx + 1)
             arrays = weather_site["arrays"]
             row["gdd_cum"] = float(np.maximum(arrays["temp_avg_c"][cumulative] - 10.0, 0.0).sum())
@@ -68,12 +69,14 @@ def add_process_features(panel_rows: list[dict[str, Any]], weather_by_site: dict
             row["rain_7d_sum"] = float(arrays["precip_sum"][window_7].sum())
             row["rain_14d_sum"] = float(arrays["precip_sum"][window_14].sum())
             row["rain_21d_sum"] = float(arrays["precip_sum"][window_21].sum())
+            row
             row["rainy_streak_days"] = float(arrays["rainy_streak_days"][current_idx])
             row["rain_gap_days"] = float(arrays["rain_gap_days"][current_idx])
             # row["temp_3d_mean"] = float(arrays["temp_avg_c"][window_3].mean())
             row["temp_7d_mean"] = float(arrays["temp_avg_c"][window_7].mean())
             row["temp_14d_mean"] = float(arrays["temp_avg_c"][window_14].mean())
             row["temp_21d_mean"] = float(arrays["temp_avg_c"][window_21].mean())
+            row["temp_28d_mean"] = float(arrays["temp_avg_c"][window_28].mean())
             row["temp_range_24h_c"] = float(arrays["temp_range_24h_c"][current_idx])
 
             row["relative_humidity"] = float(arrays["relative_humidity"][current_idx])
@@ -84,11 +87,13 @@ def add_process_features(panel_rows: list[dict[str, Any]], weather_by_site: dict
             row["rh_7d_mean"] = float(arrays["relative_humidity"][window_7].mean())
             row["rh_14d_mean"] = float(arrays["relative_humidity"][window_14].mean())
             row["rh_21d_mean"] = float(arrays["relative_humidity"][window_21].mean())
+            row["rh_28d_mean"] = float(arrays["relative_humidity"][window_28].mean())
             row["humidity_range_daily"] = float(arrays["humidity_range_daily"][current_idx])
         
             row["soil_rel_humidity_7d_mean"] = float(arrays["soil_rel_humidity"][window_7].mean())
             row["soil_rel_humidity_14d_mean"] = float(arrays["soil_rel_humidity"][window_14].mean())
             row["soil_rel_humidity_21d_mean"] = float(arrays["soil_rel_humidity"][window_21].mean())
+            row["soil_rel_humidity_28d_mean"] = float(arrays["soil_rel_humidity"][window_28].mean())
 
             row["radiation_7d_mean"] = float(arrays["radiation_avg"][window_7].mean())
             row["wind_7d_mean"] = float(arrays["wind_avg"][window_7].mean())
@@ -136,6 +141,7 @@ def build_weather_process_feature_rows(weather_by_site: dict[int, dict[str, Any]
             window_7 = slice(max(0, current_idx - 6), current_idx + 1)
             window_14 = slice(max(0, current_idx - 13), current_idx + 1)
             window_21 = slice(max(0, current_idx - 20), current_idx + 1)
+            window_28 = slice(max(0, current_idx - 27), current_idx + 1)
             cumulative = slice(0, current_idx + 1)
 
             row = {
@@ -188,6 +194,7 @@ def build_weather_process_feature_rows(weather_by_site: dict[int, dict[str, Any]
                 "rain_7d_sum": float(arrays["precip_sum"][window_7].sum()),
                 "rain_14d_sum": float(arrays["precip_sum"][window_14].sum()),
                 "rain_21d_sum": float(arrays["precip_sum"][window_21].sum()),
+                "rain_28d_sum": float(arrays["precip_sum"][window_28].sum()),
 
                 "rainy_streak_days": float(arrays["rainy_streak_days"][current_idx]),
                 "rain_gap_days": float(arrays["rain_gap_days"][current_idx]),
@@ -196,17 +203,20 @@ def build_weather_process_feature_rows(weather_by_site: dict[int, dict[str, Any]
                 "temp_7d_mean": float(arrays["temp_avg_c"][window_7].mean()),
                 "temp_14d_mean": float(arrays["temp_avg_c"][window_14].mean()),
                 "temp_21d_mean": float(arrays["temp_avg_c"][window_21].mean()),
+                "temp_28d_mean": float(arrays["temp_avg_c"][window_28].mean()),
                 "temp_range_24h_c": float(arrays["temp_range_24h_c"][current_idx]),
 
                 # "rh_3d_mean": float(arrays["relative_humidity"][window_3].mean()),
                 "rh_7d_mean": float(arrays["relative_humidity"][window_7].mean()),
                 "rh_14d_mean": float(arrays["relative_humidity"][window_14].mean()),
                 "rh_21d_mean": float(arrays["relative_humidity"][window_21].mean()),
+                "rh_28d_mean": float(arrays["relative_humidity"][window_28].mean()),
                 "humidity_range_daily": float(arrays["humidity_range_daily"][current_idx]),
 
                 "soil_rel_humidity_14d_mean": float(arrays["soil_rel_humidity"][window_14].mean()),
                 "soil_rel_humidity_7d_mean": float(arrays["soil_rel_humidity"][window_7].mean()),
                 "soil_rel_humidity_21d_mean": float(arrays["soil_rel_humidity"][window_21].mean()),
+                "soil_rel_humidity_28d_mean": float(arrays["soil_rel_humidity"][window_28].mean()),
 
                 "radiation_7d_mean": float(arrays["radiation_avg"][window_7].mean()),
                 "wind_7d_mean": float(arrays["wind_avg"][window_7].mean()),
