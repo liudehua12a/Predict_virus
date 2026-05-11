@@ -104,11 +104,12 @@ class BatchManagementModule(ManagementModule):
             }
         """)
 
-        # 【修改点 1】第一列自动拉伸，操作列固定最小宽度
+        # 【修改点 1】第一列自动拉伸，最后一列操作列根据内容大小调整
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.setColumnWidth(6, 120)  # 强制操作列最小宽度确保按钮完整显示
+        # 将第6列设为固定模式 Fixed
         self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Fixed)
-
+        # 现在这行代码可以完美生效了，120px 足够放下两个最小宽度 45 的按钮 + 间距
+        self.table.setColumnWidth(6, 150)
         right_layout.addWidget(self.table)
 
         main_layout.addWidget(left_panel, 1)
@@ -188,8 +189,8 @@ class BatchManagementModule(ManagementModule):
             # 【修改点 2】优化按钮布局
             btn_widget = QWidget()
             btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(4, 2, 4, 2)  # 增加内边距
-            btn_layout.setSpacing(8)  # 增加间距
+            btn_layout.setContentsMargins(1, 2, 1, 2)  # 增加内边距
+            btn_layout.setSpacing(6)  # 增加间距
             btn_layout.setAlignment(Qt.AlignCenter)  # 居中对齐
 
             # 编辑按钮
@@ -197,7 +198,7 @@ class BatchManagementModule(ManagementModule):
             edit_btn.setMinimumWidth(45)
             edit_btn.setStyleSheet("""
                 QPushButton {
-                    padding: 4px 8px; 
+                    padding: 4px 1px; 
                     font-size: 12px; 
                     border: 1px solid #CBD5E1; 
                     border-radius: 4px;
@@ -213,7 +214,7 @@ class BatchManagementModule(ManagementModule):
             del_btn.setMinimumWidth(45)
             del_btn.setStyleSheet("""
                 QPushButton {
-                    padding: 4px 8px; 
+                    padding: 4px 1px; 
                     font-size: 12px; 
                     border: 1px solid #CBD5E1; 
                     border-radius: 4px;

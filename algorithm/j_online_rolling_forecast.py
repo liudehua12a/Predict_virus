@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 from typing import Any
 from pathlib import Path
 
-import joblib
 import numpy as np
 import a_config as cfg
 import d_model_training_testing as mt
@@ -54,7 +53,6 @@ def build_prediction_result_row(
     row: dict[str, Any],
     prev_targets: np.ndarray,
     pred_targets: np.ndarray,
-    model_type: str = "LSTM",
 ) -> dict[str, Any]:
     """
     将单日预测结果整理成便于前端/数据库使用的结构。
@@ -77,7 +75,7 @@ def build_prediction_result_row(
         "site_id": row["site_id"],
         "disease_key": disease_key,
         "disease_cn": disease_cfg["cn_name"],
-        "model_type": model_type,
+        "model_type": cfg.ONLINE_MODEL_TYPE,
 
         "prev_target_1_name": target_1,
         "prev_target_2_name": target_2,
@@ -100,7 +98,6 @@ def rolling_forecast_next_n_days(
     disease_key: str,
     future_rows: list[dict[str, Any]],
     last_observed_values: dict[str, float] | None = None,
-    model_type: str = "XGBoost",
 ) -> list[dict[str, Any]]:
     """
     对未来多天样本做逐日滚动预测。
@@ -129,7 +126,6 @@ def rolling_forecast_next_n_days(
             row=row,
             prev_targets=previous_targets,
             pred_targets=pred_targets,
-            model_type=model_type,
         )
         prediction_results.append(result_row)
 
@@ -147,7 +143,6 @@ def prepare_and_rolling_forecast(
     predict_dates: list[str],
     stage_code: float,
     last_observed_values: dict[str, float] | None = None,
-    model_type: str = "XGBoost",
 ) -> list[dict[str, Any]]:
     """
     一站式函数：
@@ -167,7 +162,6 @@ def prepare_and_rolling_forecast(
         disease_key=disease_key,
         future_rows=future_rows,
         last_observed_values=last_observed_values,
-        model_type=model_type,
     )
 
 
@@ -179,7 +173,6 @@ def save_prediction_results_for_one_disease(
     base_source_id: str | None = None,
     prediction_run_id: str | None = None,
     allow_insert: bool = False,
-    model_type: str = "LSTM",
 ) -> str:
     """
     将当前单病害滚动预测结果写入 disease_prediction 宽表。
@@ -199,7 +192,7 @@ def save_prediction_results_for_one_disease(
         prediction_run_id=prediction_run_id,
         site_id=site_id,
         batch_id=batch_id,
-        model_type=model_type,
+        model_type=cfg.ONLINE_MODEL_TYPE,
         disease_key=disease_key,
         prediction_results=prediction_results,
         base_observation_date=base_observation_date,
@@ -223,7 +216,6 @@ def run_single_disease_prediction_and_save(
     stage_code: float,
     last_observed_values: dict[str, float] | None = None,
     allow_insert: bool = False,
-    model_type: str = "XGBoost",
 ) -> list[dict[str, Any]]:
     """
     执行单个病害的：
@@ -231,7 +223,7 @@ def run_single_disease_prediction_and_save(
     2. 滚动预测
     3. 落库到 disease_prediction 宽表对应列
     """
-    bundle = load_full_bundle_for_disease(disease_key, model_type=model_type)
+    bundle = load_full_bundle_for_disease(disease_key)
 
     prediction_results = prepare_and_rolling_forecast(
         bundle=bundle,
@@ -242,7 +234,6 @@ def run_single_disease_prediction_and_save(
         predict_dates=predict_dates,
         stage_code=stage_code,
         last_observed_values=last_observed_values,
-        model_type=model_type,
     )
 
     if last_observed_values:
@@ -258,7 +249,6 @@ def run_single_disease_prediction_and_save(
         base_source_id=None,
         prediction_run_id=prediction_run_id,
         allow_insert=allow_insert,
-        model_type=model_type,
     )
 
     return prediction_results
@@ -273,7 +263,6 @@ def run_all_diseases_prediction_and_save(
     history_end_date_str: str,
     stage_code: float,
     last_observed_by_disease: dict[str, dict[str, float] | None] | None = None,
-    model_type: str = "XGBoost",
 ) -> dict[str, list[dict[str, Any]]]:
     """
     顺序执行三种病害预测，并共用同一个 prediction_run_id。
@@ -287,7 +276,7 @@ def run_all_diseases_prediction_and_save(
     storage.disable_current_prediction_rows(
         site_id=site_id,
         batch_id=batch_id,
-        model_type=model_type,
+        model_type=cfg.ONLINE_MODEL_TYPE,
         predict_dates=predict_dates,
     )
     all_results: dict[str, list[dict[str, Any]]] = {}
@@ -310,7 +299,6 @@ def run_all_diseases_prediction_and_save(
             stage_code=stage_code,
             last_observed_values=disease_last_observed,
             allow_insert=allow_insert,
-            model_type=model_type,
         )
 
         all_results[disease_key] = disease_results
@@ -327,41 +315,13 @@ def run_all_diseases_prediction_and_save(
     }
 
 
-def load_full_bundle_for_disease(disease_key: str, model_type: str = "XGBoost") -> dict[str, Any]:
+def load_full_bundle_for_disease(disease_key: str) -> dict[str, Any]:
     """
     加载某个病害对应的 full bundle。
     """
-    compact = str(model_type or "").strip().lower().replace(" ", "").replace("_", "").replace("-", "")
-    load_as_xgboost = False
-
-    if ("xgboost" in compact) and ("lstm" not in compact) and ("fusion" not in compact) and ("融合" not in compact):
-        model_dir = getattr(cfg, "MODEL_DIR_XGBOOST", cfg.MODULE_DIR / "models" / "Xgboost")
-        candidates = [
-            model_dir / f"xg_full_bundle_{disease_key}.pt",
-        ]
-        load_as_xgboost = True
-    elif ("fusion" in compact) or ("融合" in compact) or (("lstm" in compact) and ("xgboost" in compact)):
-        model_dir = getattr(cfg, "MODEL_DIR_LSTM_XGBOOST", cfg.MODULE_DIR / "models" / "lstm+xgboost")
-        candidates = [
-            model_dir / f"fus_full_bundle_{disease_key}.pt",
-        ]
-    else:
-        model_dir = getattr(cfg, "MODEL_DIR_LSTM", getattr(cfg, "MODEL_DIR", cfg.MODULE_DIR / "models" / "lstm"))
-        candidates = [
-            model_dir / f"lstm_full_bundle_{disease_key}.pt",
-            model_dir / f"full_bundle_{disease_key}.pt",
-        ]
-
-    bundle_path = next((p for p in candidates if p.exists()), None)
-    if bundle_path is None:
-        raise FileNotFoundError(
-            f"未找到模型文件: disease_key={disease_key}, model_type={model_type!r}, candidates={[str(p) for p in candidates]}"
-        )
-
-    print(f"[ModelSelect] model_type={model_type!r} -> 使用模型: {bundle_path}")
-    if load_as_xgboost:
-        return joblib.load(str(bundle_path), mmap_mode=None)
-
+    bundle_path = cfg.MODEL_DIR / f"full_bundle_{disease_key}.pt"
+    if not bundle_path.exists():
+        raise FileNotFoundError(f"未找到模型文件: {bundle_path}")
     return mt.load_bundle(bundle_path)
 
 def rebuild_predictions_after_observation(
@@ -369,7 +329,6 @@ def rebuild_predictions_after_observation(
     batch_id: int,
     observation_date_str: str,
     forecast_horizon_days: int = 7,
-    model_type: str = "XGBoost",
 ) -> dict[str, Any]:
     """
     当某条真实调查值入库后：
@@ -392,7 +351,7 @@ def rebuild_predictions_after_observation(
         site_id=site_id,
         batch_id=batch_id,
         predict_date=observation_row["survey_date"],
-        model_type=model_type,
+        model_type=cfg.ONLINE_MODEL_TYPE,
     )
 
     has_conflict = storage.observation_conflicts_with_current_prediction(
@@ -444,7 +403,7 @@ def rebuild_predictions_after_observation(
     storage.disable_current_predictions_from_date(
         site_id=site_id,
         batch_id=batch_id,
-        model_type=model_type,
+        model_type=cfg.ONLINE_MODEL_TYPE,
         start_date_str=forecast_start_date_str,
     )
 
@@ -458,7 +417,6 @@ def rebuild_predictions_after_observation(
         history_end_date_str=observation_row["survey_date"],
         stage_code=stage_code,
         last_observed_by_disease=last_observed_by_disease,
-        model_type=model_type,
     )
 
     return {

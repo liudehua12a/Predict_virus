@@ -1,6 +1,6 @@
 '''
     从 weather_daily 查某点位最近历史日表
-    如果不足 21 天，用 mock 日表往前补齐
+    如果不足 MIN_HISTORY_DAYS 天，用 mock 日表往前补齐
     从 weather_daily 查未来预报日表
     调 09_online_prediction_preparation.py 构造 future_rows
 '''
@@ -11,9 +11,11 @@ from typing import Any
 import i_online_prediction_preparation as prep
 import k_weather_data_storage as storage
 from pathlib import Path
+import a_config as cfg
 
 
-MIN_HISTORY_DAYS = 21
+# MIN_HISTORY_DAYS = 21
+MIN_HISTORY_DAYS = cfg.MAX_PROCESS_WINDOW_DAYS
 FORECAST_FULL_DAYS = 7
 
 
@@ -149,7 +151,7 @@ def run_prediction_preparation_demo():
     print(f"点位: {site_id}")
     print(f"历史截止日期: {history_end_date_str}")
 
-    # Step 1: 历史不足 21 天时补齐
+    # Step 1: 历史不足 MIN_HISTORY_DAYS 天时补齐
     history_daily_rows = ensure_min_history_days(
         site_id=site_id,
         end_date_str=history_end_date_str,

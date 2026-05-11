@@ -15,7 +15,7 @@ class DataManagementWindow(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("数据管理")
-        self.setMinimumSize(1000, 600)
+        self.setMinimumSize(1200, 600)
         self._modules = {}  # module_id -> module_instance
         self._module_list = []  # 按注册顺序保存 module_id
         self._init_ui()

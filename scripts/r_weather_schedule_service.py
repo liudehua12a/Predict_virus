@@ -95,7 +95,7 @@ def run_forecast_task_for_site(site_row: dict[str, Any]) -> None:
 
 
 def run_forecast_task_for_all_sites() -> None:
-    """
+    """fetch_qweather_hourly_forecast_by_latlon
     所有点位：未来 168h 预报任务
     """
     sites = storage.get_all_active_sites()
