@@ -60,32 +60,43 @@ def build_last_observed_for_prediction_start(
         survey_date=yesterday_str,
     )
 
-    observation_row = storage.get_latest_observation_on_or_before_date(
-        site_id=site_id,
-        batch_id=batch_id,
-        survey_date=yesterday_str,
-    )
-
-    if observation_row and normalize_date_str(observation_row["survey_date"]) == yesterday_str:
-        return (
-            storage.build_last_observed_by_disease_from_observation(observation_row),
-            "observation",
-            stage_code,
+    # ===== 改进逻辑：从昨天开始往前查最多7天 =====
+    max_lookback_days = 7
+    
+    for day_offset in range(0, max_lookback_days):
+        check_date = yesterday_date - timedelta(days=day_offset)
+        check_date_str = check_date.strftime("%Y-%m-%d")
+        
+        # 1. 先查该日期的真实观测数据
+        observation_row = storage.get_latest_observation_on_or_before_date(
+            site_id=site_id,
+            batch_id=batch_id,
+            survey_date=check_date_str,
         )
-
-    prediction_row = storage.get_current_prediction_by_date(
-        site_id=site_id,
-        batch_id=batch_id,
-        predict_date=yesterday_str,
-        model_type=cfg.ONLINE_MODEL_TYPE,
-    )
-
-    if prediction_row:
-        return (
-            storage.build_last_observed_by_disease_from_prediction(prediction_row),
-            "prediction",
-            stage_code,
+        
+        # ===== 注释：原逻辑要求 observation 日期必须等于昨天，现改为只要找到就用 =====
+        # if observation_row and normalize_date_str(observation_row["survey_date"]) == yesterday_str:
+        if observation_row and normalize_date_str(observation_row["survey_date"]) == check_date_str:
+            return (
+                storage.build_last_observed_by_disease_from_observation(observation_row),
+                "observation",
+                stage_code,
+            )
+        
+        # 2. 如果没有观测，查该日期的预测数据
+        prediction_row = storage.get_current_prediction_by_date(
+            site_id=site_id,
+            batch_id=batch_id,
+            predict_date=check_date_str,
+            model_type=cfg.ONLINE_MODEL_TYPE,
         )
+        
+        if prediction_row:
+            return (
+                storage.build_last_observed_by_disease_from_prediction(prediction_row),
+                "prediction",
+                stage_code,
+            )
 
     return (
         {
