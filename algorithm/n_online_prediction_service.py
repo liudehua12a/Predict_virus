@@ -128,7 +128,8 @@ def build_last_observed_for_prediction_start(
             normalize_date_str(recent_prediction["predict_date"]), "%Y-%m-%d"
         ).date()
         days_diff = (yesterday_date - recent_predict_date).days
-        if days_diff > get_data_staleness_threshold():
+        threshold = get_data_staleness_threshold()
+        if threshold is not None and days_diff > threshold:
             raise ValueError("数据过久，请及时更新数据")
         return (
             storage.build_last_observed_by_disease_from_prediction(recent_prediction),

@@ -180,17 +180,21 @@ class SiteManagementModule(ManagementModule):
     def _on_delete(self, row):
         reply = QMessageBox.question(
             self, "确认删除",
-            f"确定要删除站点「{row['site_name']}」吗？\n删除后将无法在预测中使用，但仍保留历史数据。",
+            f"确定要删除站点「{row['site_name']}」吗？\n此操作将从数据库中永久删除站点及其所有批次数据，且无法恢复。",
             QMessageBox.Yes | QMessageBox.No
         )
         if reply == QMessageBox.Yes:
-            from datetime import datetime
             conn = sqlite3.connect(str(DB_PATH))
-            conn.execute(
-                "UPDATE site_info SET is_active = 0, updated_at = ? WHERE site_id = ?",
-                (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), row["site_id"])
-            )
-            conn.commit()
-            conn.close()
+            try:
+                # 先删除该站点关联的批次数据
+                conn.execute("DELETE FROM survey_batch WHERE site_id = ?", (row["site_id"],))
+                # 再删除站点本身
+                conn.execute("DELETE FROM site_info WHERE site_id = ?", (row["site_id"],))
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                QMessageBox.warning(self, "删除失败", f"删除站点时出错：{e}")
+            finally:
+                conn.close()
             self.refresh()
             self.data_changed.emit(self.MODULE_ID, row["site_id"], "delete")

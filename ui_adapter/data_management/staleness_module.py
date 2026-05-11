@@ -22,7 +22,8 @@ class DataStalenessModule(ManagementModule):
         # 说明文字
         desc_label = QLabel(
             "数据时效用于控制预测启动时对历史数据新鲜度的要求。\n"
-            "当最近一次预测记录距今超过设定天数时，系统将拒绝启动预测并提示更新数据。"
+            "当最近一次预测记录距今超过设定天数时，系统将拒绝启动预测并提示更新数据。\n"
+            "选择「无限制」则不检查数据时效，始终允许启动预测。"
         )
         desc_label.setStyleSheet("color: #64748B; font-size: 13px; line-height: 1.6;")
         desc_label.setWordWrap(True)
@@ -54,7 +55,7 @@ class DataStalenessModule(ManagementModule):
         row.addWidget(QLabel("允许的最大时间差:"))
 
         self.threshold_combo = QComboBox()
-        self.threshold_combo.addItems(["3天", "7天"])
+        self.threshold_combo.addItems(["3天", "7天", "无限制"])
         self.threshold_combo.setStyleSheet("""
             QComboBox {
                 padding: 6px 12px;
@@ -71,7 +72,7 @@ class DataStalenessModule(ManagementModule):
         self.threshold_combo.currentTextChanged.connect(self._on_threshold_changed)
         row.addWidget(self.threshold_combo)
 
-        row.addWidget(QLabel("（超过此天数则提示数据过久）"))
+        row.addWidget(QLabel("（超过此天数则提示数据过久，无限制则不限制）"))
         row.addStretch()
 
         card_layout.addLayout(row)
@@ -93,14 +94,28 @@ class DataStalenessModule(ManagementModule):
         from algorithm.k_weather_data_storage import get_data_staleness_threshold
         current = get_data_staleness_threshold()
         self.threshold_combo.blockSignals(True)
-        self.threshold_combo.setCurrentText("3天" if current == 3 else "7天")
+        if current is None:
+            self.threshold_combo.setCurrentText("无限制")
+        elif current == 3:
+            self.threshold_combo.setCurrentText("3天")
+        else:
+            self.threshold_combo.setCurrentText("7天")
         self.threshold_combo.blockSignals(False)
-        self.status_label.setText(
-            f"当前配置：数据时效阈值为 {current} 天"
-        )
+        if current is None:
+            self.status_label.setText("当前配置：数据时效阈值为 无限制（不限制）")
+        else:
+            self.status_label.setText(f"当前配置：数据时效阈值为 {current} 天")
 
     def _on_threshold_changed(self, text):
-        value = 3 if text == "3天" else 7
+        if text == "无限制":
+            value = None
+        elif text == "3天":
+            value = 3
+        else:
+            value = 7
         from algorithm.k_weather_data_storage import set_data_staleness_threshold
         set_data_staleness_threshold(value)
-        self.status_label.setText(f"当前配置：数据时效阈值为 {value} 天")
+        if value is None:
+            self.status_label.setText("当前配置：数据时效阈值为 无限制（不限制）")
+        else:
+            self.status_label.setText(f"当前配置：数据时效阈值为 {value} 天")
