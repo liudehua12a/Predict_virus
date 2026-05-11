@@ -6,6 +6,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 import uuid
+
+from pyparsing import NULL_SLICE
+
 import h_qweather_api as weather_api
 
 # ======分区1：连接与基础工具======
@@ -1442,10 +1445,11 @@ def get_latest_stage_code_on_or_before_date(
     )
 
     if not observation_row:
-        raise ValueError(
-            f"无法生成 stage_code：没有找到真实调查记录。"
-            f"site_id={site_id}, batch_id={batch_id}, survey_date<={survey_date}"
-        )
+        return 0
+        # raise ValueError(
+        #     f"无法生成 stage_code：没有找到真实调查记录。"
+        #     f"site_id={site_id}, batch_id={batch_id}, survey_date<={survey_date}"
+        # )
 
     return growth_stage_to_code(observation_row.get("growth_stage"))
 
@@ -1839,21 +1843,24 @@ def get_weather_data(site_id: int, days: int = 7) -> list[dict[str, Any]]:
     return weather_data
 
 
-def get_data_staleness_threshold() -> int:
-    """从配置文件读取数据时效阈值（默认7天）"""
+def get_data_staleness_threshold() -> int | None:
+    """从配置文件读取数据时效阈值（默认7天，None表示无限制）"""
     import configparser
     ROOT_DIR = Path(__file__).resolve().parent.parent
     _CONFIG_PATH = ROOT_DIR / "algorithm" / "data" / "config.ini"
     cfg = configparser.ConfigParser()
     cfg.read(str(_CONFIG_PATH))
     try:
+        value_str = cfg.get("data_management", "days_diff")
+        if value_str.strip() in ("", "0", "unlimited"):
+            return None
         return cfg.getint("data_management", "days_diff")
     except Exception:
         return 7
 
 
-def set_data_staleness_threshold(value: int) -> None:
-    """写入数据时效阈值到配置文件"""
+def set_data_staleness_threshold(value: int | None) -> None:
+    """写入数据时效阈值到配置文件（None表示无限制）"""
     import configparser
     ROOT_DIR = Path(__file__).resolve().parent.parent
     _CONFIG_PATH = ROOT_DIR / "algorithm" / "data" / "config.ini"
@@ -1861,6 +1868,9 @@ def set_data_staleness_threshold(value: int) -> None:
     cfg.read(str(_CONFIG_PATH))
     if "data_management" not in cfg:
         cfg["data_management"] = {}
-    cfg["data_management"]["days_diff"] = str(value)
+    if value is None:
+        cfg["data_management"]["days_diff"] = "unlimited"
+    else:
+        cfg["data_management"]["days_diff"] = str(value)
     with open(str(_CONFIG_PATH), "w") as f:
         cfg.write(f)

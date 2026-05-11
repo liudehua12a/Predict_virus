@@ -639,6 +639,7 @@ class DiseasePredictionApp(QMainWindow):
         window.register_module(SiteManagementModule())
         window.register_module(BatchManagementModule())
         window.register_module(DataStalenessModule())
+        window.data_updated.connect(self.update_area_options)
         window.exec_()
 
     def import_excel(self):

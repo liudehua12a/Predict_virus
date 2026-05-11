@@ -2,10 +2,11 @@ from PyQt5.QtWidgets import (
     QDialog, QWidget, QHBoxLayout, QVBoxLayout,
     QListWidget, QStackedWidget, QLabel
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 
 
 class DataManagementWindow(QDialog):
+    data_updated = pyqtSignal()  # 数据变更时发射此信号
     """
     数据管理弹窗。
     通过 register_module() 注册管理模块，左侧 sidebar 切换，
@@ -93,6 +94,9 @@ class DataManagementWindow(QDialog):
         self._module_list.append(mid)
         self.module_list.addItem(module.MODULE_NAME)
         self.content_stack.addWidget(module)
+
+        # 连接模块的 data_changed 信号到窗口的 data_updated 信号
+        module.data_changed.connect(self.data_updated.emit)
 
         if len(self._modules) == 1:
             self.module_list.setCurrentRow(0)
