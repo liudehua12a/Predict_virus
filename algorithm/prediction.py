@@ -91,6 +91,7 @@ def _build_prediction_result_row(
     row: dict,
     prev_targets: np.ndarray,
     pred_targets: np.ndarray,
+    model_type: str,
 ):
     disease_cfg = cfg.DISEASE_CONFIGS[disease_key]
     target_1, target_2 = disease_cfg["targets"]
@@ -105,6 +106,7 @@ def _build_prediction_result_row(
         "site_id": row["site_id"],
         "disease_key": disease_key,
         "disease_cn": disease_cfg["cn_name"],
+        "model_type": model_type,
         "prev_target_1_name": target_1,
         "prev_target_2_name": target_2,
         "prev_target_1_value": round(prev_value_1, 4),
@@ -123,9 +125,12 @@ def _rolling_forecast_next_n_days(
     bundle: dict,
     disease_key: str,
     future_rows: list[dict],
+    observed_by_date: dict[str, dict[str, Any]] | None = None,
     last_observed_values: dict | None = None,
     init_alpha: float = 0.8,
     init_cap: float = 0.7,
+    model_type: str = "XGBoost",
+    enforce_monotonic: bool = True,
 ):
     """
     逐日滚动预测：
@@ -144,12 +149,37 @@ def _rolling_forecast_next_n_days(
 
     prediction_results = []
     for row in future_rows:
-        pred_targets = mt.predict_row(
-            bundle=bundle,
-            row=row,
-            previous_targets=previous_targets,
-        )
-        pred_targets = np.asarray(pred_targets, dtype=np.float32)
+        date_str = _parse_date_str(row.get("date"))
+        observed_row = observed_by_date.get(date_str) if observed_by_date else None
+
+        if observed_row:
+            disease_cfg = cfg.DISEASE_CONFIGS[disease_key]
+            target_1, target_2 = disease_cfg["targets"]
+            obs_1 = observed_row.get(target_1)
+            obs_2 = observed_row.get(target_2)
+
+            if obs_1 is not None and obs_2 is not None:
+                pred_targets = np.asarray(
+                    [float(obs_1) / 100.0, float(obs_2) / 100.0],
+                    dtype=np.float32,
+                )
+            else:
+                pred_targets = mt.predict_row(
+                    bundle=bundle,
+                    row=row,
+                    previous_targets=previous_targets,
+                )
+                pred_targets = np.asarray(pred_targets, dtype=np.float32)
+        else:
+            pred_targets = mt.predict_row(
+                bundle=bundle,
+                row=row,
+                previous_targets=previous_targets,
+            )
+            pred_targets = np.asarray(pred_targets, dtype=np.float32)
+
+        if enforce_monotonic and not observed_row:
+            pred_targets = np.maximum(pred_targets, previous_targets)
 
         prediction_results.append(
             _build_prediction_result_row(
@@ -157,12 +187,45 @@ def _rolling_forecast_next_n_days(
                 row=row,
                 prev_targets=previous_targets,
                 pred_targets=pred_targets,
+                model_type=model_type,
             )
         )
 
         previous_targets = np.asarray(pred_targets, dtype=np.float32)
 
     return prediction_results
+
+
+def _build_future_rows_daily(
+    history_daily_rows: list[dict],
+    forecast_daily_rows: list[dict],
+    site_id: int,
+    batch_id: int,
+    predict_dates: list[str],
+) -> list[dict]:
+    """
+    按预测日期逐日构造 future_row。
+    每一天使用该日最新生育期编码，避免整段复用同一个 stage_code。
+    """
+    rows: list[dict] = []
+    for date_str in predict_dates:
+        stage_code = storage.get_latest_stage_code_on_or_before_date(
+            site_id=site_id,
+            batch_id=batch_id,
+            survey_date=date_str,
+        )
+        day_rows = opp.build_future_prediction_rows(
+            history_daily_rows=history_daily_rows,
+            forecast_daily_rows=forecast_daily_rows,
+            site_id=site_id,
+            predict_dates=[date_str],
+            stage_code=stage_code,
+        )
+        if day_rows:
+            rows.append(day_rows[0])
+    return rows
+
+
 
 
 def run_all_diseases_prediction_and_save(
@@ -185,11 +248,23 @@ def run_all_diseases_prediction_and_save(
     storage.disable_current_prediction_rows(
         site_id=site_id,
         batch_id=batch_id,
+        model_type=model_type,
         predict_dates=predict_dates,
     )
 
     all_results = {}
     disease_order = ["gray", "blight", "white"]
+
+    observed_by_date: dict[str, dict[str, Any]] = {}
+    if predict_dates:
+        observation_rows = storage.get_observation_rows_between_dates(
+            site_id=site_id,
+            batch_id=batch_id,
+            start_date=predict_dates[0],
+            end_date=predict_dates[-1],
+        )
+        for obs in observation_rows:
+            observed_by_date[_parse_date_str(obs.get("survey_date"))] = obs
 
     print(
         f"[ForecastParams] init_alpha={init_alpha}, init_cap={init_cap}, monotonic_output=False"
@@ -198,12 +273,23 @@ def run_all_diseases_prediction_and_save(
     for idx, disease_key in enumerate(disease_order):
         bundle = load_full_bundle_for_disease(disease_key, model_type=model_type)
 
-        future_rows = opp.build_future_prediction_rows(
+        future_rows = _build_future_rows_daily(
             history_daily_rows=history_daily_rows,
             forecast_daily_rows=forecast_daily_rows,
             site_id=site_id,
+            batch_id=batch_id,
             predict_dates=predict_dates,
         )
+
+        for row in future_rows:
+            stage_code = storage.get_latest_stage_code_on_or_before_date(
+                site_id=site_id,
+                batch_id=batch_id,
+                survey_date=_parse_date_str(row.get("date")),
+            )
+            row["stage_code"] = stage_code
+            row["growth_stage_code"] = stage_code
+
 
     
 
@@ -213,10 +299,17 @@ def run_all_diseases_prediction_and_save(
             bundle=bundle,
             disease_key=disease_key,
             future_rows=future_rows,
+            observed_by_date=observed_by_date,
             last_observed_values=disease_last_observed,
             init_alpha=init_alpha,
             init_cap=init_cap,
+            model_type=model_type,
+            enforce_monotonic=True,
         )
+
+        for row in disease_results:
+            if isinstance(row, dict) and "model_type" not in row:
+                row["model_type"] = model_type
 
         allow_insert = (idx == 0)
         base_source_type = "observation" if disease_last_observed else "zero_init"
@@ -225,6 +318,7 @@ def run_all_diseases_prediction_and_save(
             prediction_run_id=prediction_run_id,
             site_id=site_id,
             batch_id=batch_id,
+            model_type=model_type,
             disease_key=disease_key,
             prediction_results=disease_results,
             base_observation_date=history_end_date_str,

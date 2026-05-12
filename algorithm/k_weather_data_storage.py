@@ -10,6 +10,7 @@ import uuid
 from pyparsing import NULL_SLICE
 
 import h_qweather_api as weather_api
+import a_config as cfg
 
 # ======分区1：连接与基础工具======
 # ===== 数据库文件路径 =====
@@ -1390,6 +1391,39 @@ def get_latest_observation_on_or_before_date(
 
     return dict(row) if row else None
 
+
+def get_observation_rows_between_dates(
+    site_id: int,
+    batch_id: int,
+    start_date: str,
+    end_date: str,
+) -> list[dict[str, Any]]:
+    """
+    查询某个批次在指定日期区间内的真实调查记录（含起止）。
+    """
+    sql = """
+    SELECT *
+    FROM disease_observation
+    WHERE site_id = ?
+      AND batch_id = ?
+      AND survey_date BETWEEN ? AND ?
+    ORDER BY survey_date ASC, observation_id ASC
+    ;
+    """
+
+    with closing(get_connection()) as conn:
+        rows = conn.execute(
+            sql,
+            (
+                site_id,
+                batch_id,
+                normalize_date_str(start_date),
+                normalize_date_str(end_date),
+            ),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
 def growth_stage_to_code(growth_stage: Any) -> float:
     """
     将 disease_observation.growth_stage 转成模型使用的 stage_code。
@@ -1409,6 +1443,10 @@ def growth_stage_to_code(growth_stage: Any) -> float:
     if text == "":
         raise ValueError("growth_stage 为空字符串，无法生成 stage_code。")
 
+    # 直接使用配置映射（支持 V/R/VE 等）
+    if text in cfg.STAGE_CODE_BASE:
+        return float(cfg.STAGE_CODE_BASE[text])
+
     # 支持 Excel 填 V10 / V8 / V3
     if text.startswith("V"):
         number_part = text[1:]
@@ -1421,7 +1459,7 @@ def growth_stage_to_code(growth_stage: Any) -> float:
 
     raise ValueError(
         f"无法识别的 growth_stage: {growth_stage}。"
-        "当前支持格式：V1、V2、...、V10，或直接填写数字 1、2、...、10。"
+        "当前支持格式：V1、V2、...、V10、R1、R2、...、R6、VE，或直接填写数字 1、2、...、10。"
     )
 
 

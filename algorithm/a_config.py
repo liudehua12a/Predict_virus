@@ -32,6 +32,7 @@ ZIP_PATH = ROOT / "叶斑病定点调查数据.zip"
 OUT_DIR = ROOT / "results_leafspot_lstm"
 FIG_DIR = OUT_DIR / "figures"
 MODEL_DIR = MODULE_DIR / "models"/"lstm"
+MODEL_DIR_XGBOOST = MODULE_DIR / "models" / "Xgboost"
 
 SURVEY_FILENAME = "2025定点监测叶斑病调查数据.xlsx"
 WEATHER_FILENAME = "2025年定点监测气象数据.xlsx"

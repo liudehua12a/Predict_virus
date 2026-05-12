@@ -347,7 +347,19 @@ def _build_feature_row_by_columns(
     seq_last_map = {name: float(seq_last[idx]) for idx, name in enumerate(cfg.SEQ_FEATURES)}
     day_of_year = _extract_day_of_year(row)
 
+    def _extract_month(value: Any) -> float:
+        if hasattr(value, "month"):
+            return float(value.month)
+        try:
+            text = str(value).strip()
+            if len(text) >= 7 and text[4] == "-":
+                return float(int(text[5:7]))
+        except Exception:
+            pass
+        return 0.0
+
     feature_values: dict[str, float] = {}
+    missing_cols: list[str] = []
     for col in feature_columns:
         if col in row:
             feature_values[col] = float(fe.fill_none(row.get(col)))
@@ -362,6 +374,31 @@ def _build_feature_row_by_columns(
             feature_values[col] = float(day_of_year)
             continue
 
+        if text in {"month", "month_of_year", "monthofyear"}:
+            feature_values[col] = _extract_month(row.get("date"))
+            continue
+
+        if text in {"growth_stage_code", "stage_code"}:
+            stage_code = row.get("growth_stage_code", row.get("stage_code", 0.0))
+            feature_values[col] = float(fe.fill_none(stage_code))
+            continue
+
+        if text in {"curr_rate", "curr_incidence", "current_rate", "current_incidence"}:
+            feature_values[col] = float(previous_targets[0])
+            continue
+
+        if text in {"curr_index", "current_index"}:
+            feature_values[col] = float(previous_targets[1])
+            continue
+
+        if text in {"rate_growth_1d", "incidence_growth_1d"}:
+            feature_values[col] = 0.0
+            continue
+
+        if text in {"index_growth_1d"}:
+            feature_values[col] = 0.0
+            continue
+
         if _is_prev_feature_for_target(col, disease_key, "rate"):
             feature_values[col] = float(previous_targets[0])
             continue
@@ -370,7 +407,17 @@ def _build_feature_row_by_columns(
             feature_values[col] = float(previous_targets[1])
             continue
 
+        missing_cols.append(col)
         feature_values[col] = 0.0
+
+    if missing_cols:
+        date_text = row.get("date")
+        summary_values = [feature_values[col] for col in feature_columns]
+        print(
+            f"[XGB][FeatureMissing] date={date_text} missing={len(missing_cols)} "
+            f"sample={missing_cols[:6]} input_min={min(summary_values):.4f} "
+            f"input_max={max(summary_values):.4f}"
+        )
 
     return pd.DataFrame([[feature_values[col] for col in feature_columns]], columns=feature_columns)
 

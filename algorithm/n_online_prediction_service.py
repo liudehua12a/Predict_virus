@@ -227,21 +227,55 @@ def run_online_prediction_for_today(
         yesterday_date=yesterday_date,
     )
 
-    all_output = forecast10.run_all_diseases_prediction_and_save(
-        site_id=site_id,
-        batch_id=batch_id,
-        history_daily_rows=history_daily_rows,
-        forecast_daily_rows=forecast_daily_rows,
-        predict_dates=predict_dates,
-        history_end_date_str=history_end_date_str,
-        stage_code=stage_code,
-        last_observed_by_disease=last_observed_by_disease,
+    model_type_text = str(model_type or "").strip().lower()
+    is_xgboost = ("xgboost" in model_type_text) and ("lstm" not in model_type_text)
+    is_fusion = ("fusion" in model_type_text) or ("融合" in model_type_text) or (
+        ("lstm" in model_type_text) and ("xgboost" in model_type_text)
     )
+
+    if is_xgboost:
+        import prediction as xgb_prediction
+
+        all_output = xgb_prediction.run_all_diseases_prediction_and_save(
+            site_id=site_id,
+            batch_id=batch_id,
+            model_type=model_type,
+            history_daily_rows=history_daily_rows,
+            forecast_daily_rows=forecast_daily_rows,
+            predict_dates=predict_dates,
+            history_end_date_str=history_end_date_str,
+            last_observed_by_disease=last_observed_by_disease,
+        )
+    elif is_fusion:
+        import importlib
+        fusion_prediction = importlib.import_module("11_predict_disease")
+
+        all_output = fusion_prediction.run_all_diseases_prediction_and_save(
+            site_id=site_id,
+            batch_id=batch_id,
+            model_type=model_type,
+            history_daily_rows=history_daily_rows,
+            forecast_daily_rows=forecast_daily_rows,
+            predict_dates=predict_dates,
+            history_end_date_str=history_end_date_str,
+            last_observed_by_disease=last_observed_by_disease,
+        )
+    else:
+        all_output = forecast10.run_all_diseases_prediction_and_save(
+            site_id=site_id,
+            batch_id=batch_id,
+            history_daily_rows=history_daily_rows,
+            forecast_daily_rows=forecast_daily_rows,
+            predict_dates=predict_dates,
+            history_end_date_str=history_end_date_str,
+            stage_code=stage_code,
+            last_observed_by_disease=last_observed_by_disease,
+        )
 
     return {
         "site_id": site_id,
         "batch_id": batch_id,
-        "model_type": cfg.ONLINE_MODEL_TYPE,
+        "model_type": model_type,
         "today_date": today_date.strftime("%Y-%m-%d"),
         "yesterday_date": yesterday_date.strftime("%Y-%m-%d"),
         "forecast_end_date": forecast_end_date_str,

@@ -88,7 +88,10 @@ def load_full_bundle_for_disease(disease_key: str, model_type: str = "XGBoost"):
         )
 
     print(f"[ModelSelect] model_type={model_type!r} -> 使用模型: {bundle_path}")
-    return joblib.load(bundle_path)
+    try:
+        return joblib.load(bundle_path)
+    except Exception:
+        return mt.load_bundle(bundle_path)
 
 
 def _get_initial_previous_targets(
@@ -125,6 +128,7 @@ def _build_prediction_result_row(
     row: dict,
     prev_targets: np.ndarray,
     pred_targets: np.ndarray,
+    model_type: str,
 ):
     disease_cfg = cfg.DISEASE_CONFIGS[disease_key]
     target_1, target_2 = disease_cfg["targets"]
@@ -139,6 +143,7 @@ def _build_prediction_result_row(
         "site_id": row["site_id"],
         "disease_key": disease_key,
         "disease_cn": disease_cfg["cn_name"],
+        "model_type": model_type,
         "prev_target_1_name": target_1,
         "prev_target_2_name": target_2,
         "prev_target_1_value": round(prev_value_1, 4),
@@ -160,6 +165,7 @@ def _rolling_forecast_next_n_days(
     last_observed_values: dict | None = None,
     init_alpha: float = 0.8,
     init_cap: float = 0.7,
+    model_type: str = "LSTM+XGBoost",
 ):
     """
     逐日滚动预测：
@@ -191,6 +197,7 @@ def _rolling_forecast_next_n_days(
                 row=row,
                 prev_targets=previous_targets,
                 pred_targets=pred_targets,
+                model_type=model_type,
             )
         )
 
@@ -229,6 +236,7 @@ def run_all_diseases_prediction_and_save(
     storage.disable_current_prediction_rows(
         site_id=site_id,
         batch_id=batch_id,
+        model_type=model_type,
         predict_dates=predict_dates,
     )
 
@@ -244,6 +252,11 @@ def run_all_diseases_prediction_and_save(
         forecast_daily_rows=forecast_daily_rows,
         site_id=site_id,
         predict_dates=predict_dates,
+        stage_code=storage.get_latest_stage_code_on_or_before_date(
+            site_id=site_id,
+            batch_id=batch_id,
+            survey_date=history_end_date_str,
+        ),
     )
 
     for idx, disease_key in enumerate(disease_order):
@@ -258,6 +271,7 @@ def run_all_diseases_prediction_and_save(
             last_observed_values=disease_last_observed,
             init_alpha=init_alpha,
             init_cap=init_cap,
+            model_type=model_type,
         )
 
         allow_insert = (idx == 0)
@@ -267,6 +281,7 @@ def run_all_diseases_prediction_and_save(
             prediction_run_id=prediction_run_id,
             site_id=site_id,
             batch_id=batch_id,
+            model_type=model_type,
             disease_key=disease_key,
             prediction_results=disease_results,
             base_observation_date=history_end_date_str,
