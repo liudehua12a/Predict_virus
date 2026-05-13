@@ -1846,8 +1846,12 @@ def get_weather_data(site_id: int, days: int = 7) -> list[dict[str, Any]]:
 def get_data_staleness_threshold() -> int | None:
     """从配置文件读取数据时效阈值（默认7天，None表示无限制）"""
     import configparser
-    ROOT_DIR = Path(__file__).resolve().parent.parent
-    _CONFIG_PATH = ROOT_DIR / "algorithm" / "data" / "config.ini"
+    # 兼容打包后路径
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    import pyinstaller_utils as pkgutil
+    _CONFIG_PATH = pkgutil.get_config_path()
     cfg = configparser.ConfigParser()
     cfg.read(str(_CONFIG_PATH))
     try:
@@ -1862,8 +1866,12 @@ def get_data_staleness_threshold() -> int | None:
 def set_data_staleness_threshold(value: int | None) -> None:
     """写入数据时效阈值到配置文件（None表示无限制）"""
     import configparser
-    ROOT_DIR = Path(__file__).resolve().parent.parent
-    _CONFIG_PATH = ROOT_DIR / "algorithm" / "data" / "config.ini"
+    # 兼容打包后路径
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    import pyinstaller_utils as pkgutil
+    _CONFIG_PATH = pkgutil.get_config_path()
     cfg = configparser.ConfigParser()
     cfg.read(str(_CONFIG_PATH))
     if "data_management" not in cfg:

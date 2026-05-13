@@ -10,15 +10,19 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 # PIL 用于高质量图片读取
 from PIL import Image
 
-# 项目根目录
-ROOT_DIR = Path(__file__).resolve().parent.parent
+# 引入打包路径兼容工具
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import pyinstaller_utils as pkgutil
+
+# 项目根目录（兼容打包后路径）
+ROOT_DIR = pkgutil.get_root_path()
 ALGORITHM_DIR = ROOT_DIR / "algorithm"
 
 # 把 algorithm 目录加入导入路径
 sys.path.insert(0, str(ALGORITHM_DIR))
 
-# 统一数据库路径
-DB_PATH = ALGORITHM_DIR / "data" / "nky-CornPre.db"
+# 统一数据库路径（兼容打包后路径）
+DB_PATH = pkgutil.get_data_path("algorithm/data/nky-CornPre.db")
 
 
 def get_connection():
@@ -303,7 +307,7 @@ def visualize_prediction(figure, canvas, prediction_result, site_id):
                  markeredgewidth=1.2)
         ax2.tick_params(axis='y', colors='#1890FF')
 
-        ICON_DIR = ALGORITHM_DIR / "data" / "weather"
+        ICON_DIR = pkgutil.get_data_path("algorithm/data/weather")
         WEATHER_ICON_MAP = {
             '☁': 'cloud1.png',
             '☂': 'rain1.png',

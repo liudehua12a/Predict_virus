@@ -16,6 +16,7 @@ from ui_adapter.data_management.window import DataManagementWindow
 from ui_adapter.data_management.site_module import SiteManagementModule
 from ui_adapter.data_management.batch_module import BatchManagementModule
 from ui_adapter.data_management.staleness_module import DataStalenessModule
+import pyinstaller_utils as pkgutil
 
 
 def ensure_qt_platform_plugin_path():
@@ -317,14 +318,8 @@ class WelcomeWidget(QWidget):
         """)
         layout.addWidget(footer_label)
 
-        # 1. 获取当前运行脚本的绝对目录
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-
-        # 2. 拼接图片的绝对路径
-        bg_path = os.path.join(base_dir, 'algorithm', 'data', 'imgs', 'background', '224.jpg')
-
-        # 3. 替换反斜杠
-        bg_path = bg_path.replace('\\', '/')
+        # 2. 拼接图片的绝对路径（兼容打包后路径）
+        bg_path = pkgutil.get_data_path('algorithm/data/imgs/background/224.jpg')
 
         # 4. 强制生效背景
         self.setAttribute(Qt.WA_StyledBackground, True)
@@ -704,8 +699,8 @@ class DiseasePredictionApp(QMainWindow):
 
         def on_download():
             dialog.accept()
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            template_path = os.path.join(base_dir, 'algorithm', 'data', '调查数据表--模板.xlsx')
+            # 兼容打包后路径的模板文件
+            template_path = pkgutil.get_data_path('algorithm/data/调查数据表--模板.xlsx')
             save_path, _ = QFileDialog.getSaveFileName(
                 self,
                 '保存Excel模板',

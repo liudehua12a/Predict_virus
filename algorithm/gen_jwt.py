@@ -2,10 +2,17 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+import sys
 
 import jwt
 
 import os
+
+# 引入打包路径兼容工具
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import pyinstaller_utils as pkgutil
+
+
 def generate_qweather_jwt(
     private_key_path: str | Path = "ed25519-private.pem",
     sub: str = "4FKRV33M9W",
@@ -15,11 +22,8 @@ def generate_qweather_jwt(
     """
     生成和风天气 JWT。
     """
-    private_key_path = Path(private_key_path)
-    # 获取当前脚本 (gen_jwt.py) 所在的绝对路径
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    # 拼接出 pem 文件的绝对路径
-    private_key_path = os.path.join(BASE_DIR, "ed25519-private.pem")
+    # 使用兼容打包后路径的私钥文件
+    private_key_path = pkgutil.get_private_key_path()
     with open(private_key_path, "r", encoding="utf-8") as f:
         private_key = f.read()
 
