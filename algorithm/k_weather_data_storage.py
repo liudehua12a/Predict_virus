@@ -1403,11 +1403,12 @@ def growth_stage_to_code(growth_stage: Any) -> float:
     - 10  -> 10.0
     """
     if growth_stage is None:
-        raise ValueError("growth_stage 为空，无法生成 stage_code。")
+        return 0
 
     text = str(growth_stage).strip().upper()
     if text == "":
-        raise ValueError("growth_stage 为空字符串，无法生成 stage_code。")
+        return 0
+
 
     # 支持 Excel 填 V10 / V8 / V3
     if text.startswith("V"):
@@ -1418,11 +1419,12 @@ def growth_stage_to_code(growth_stage: Any) -> float:
     # 支持 Excel 直接填 10 / 8 / 3
     if text.isdigit():
         return float(text)
+    return 0
 
-    raise ValueError(
-        f"无法识别的 growth_stage: {growth_stage}。"
-        "当前支持格式：V1、V2、...、V10，或直接填写数字 1、2、...、10。"
-    )
+    # raise ValueError(
+    #     f"无法识别的 growth_stage: {growth_stage}。"
+    #     "当前支持格式：V1、V2、...、V10，或直接填写数字 1、2、...、10。"
+    # )
 
 
 def get_latest_stage_code_on_or_before_date(

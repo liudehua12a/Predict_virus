@@ -40,26 +40,41 @@ def get_most_recent_prediction(
     site_id: int,
     batch_id: int,
     model_type: str,
+    max_date_str: str | None = None,
 ) -> dict[str, Any] | None:
     """
-    获取最近一次预测记录，不限制日期。
+    获取最近一次预测记录，可选限制最大日期（不返回未来日期的预测）。
     """
-    sql = """
-    SELECT *
-    FROM disease_prediction
-    WHERE site_id = ?
-      AND batch_id = ?
-      AND model_type = ?
-      AND is_current = 1
-    ORDER BY predict_date DESC
-    LIMIT 1
-    ;
-    """
+    if max_date_str:
+        sql = """
+        SELECT *
+        FROM disease_prediction
+        WHERE site_id = ?
+          AND batch_id = ?
+          AND model_type = ?
+          AND is_current = 1
+          AND predict_date <= ?
+        ORDER BY predict_date DESC
+        LIMIT 1
+        ;
+        """
+        params = (site_id, batch_id, model_type, max_date_str)
+    else:
+        sql = """
+        SELECT *
+        FROM disease_prediction
+        WHERE site_id = ?
+          AND batch_id = ?
+          AND model_type = ?
+          AND is_current = 1
+        ORDER BY predict_date DESC
+        LIMIT 1
+        ;
+        """
+        params = (site_id, batch_id, model_type)
+
     with storage.closing(storage.get_connection()) as conn:
-        row = conn.execute(
-            sql,
-            (site_id, batch_id, model_type),
-        ).fetchone()
+        row = conn.execute(sql, params).fetchone()
     return dict(row) if row else None
 
 
@@ -116,11 +131,12 @@ def build_last_observed_for_prediction_start(
             stage_code,
         )
 
-    # 昨天真实值和预测值都不存在，查找最近一次预测值
+    # 昨天真实值和预测值都不存在，查找最近一次预测值（限制不返回未来日期）
     recent_prediction = get_most_recent_prediction(
         site_id=site_id,
         batch_id=batch_id,
         model_type=cfg.ONLINE_MODEL_TYPE,
+        max_date_str=yesterday_str,
     )
 
     if recent_prediction:
