@@ -43,14 +43,51 @@ def get_algorithm_dir() -> Path:
     return get_data_path("algorithm")
 
 
-def get_db_path() -> Path:
-    """获取数据库文件路径"""
-    return get_data_path("algorithm/data/nky-CornPre.db")
-
-
 def get_config_path() -> Path:
     """获取配置文件路径"""
     return get_data_path("algorithm/data/config.ini")
+
+
+def get_db_path() -> Path:
+    """
+    获取数据库文件路径。
+
+    - 打包后（exe）：从配置文件读取 db_path，否则使用 exe 同级目录。
+      文件不存在时抛出 FileNotFoundError。
+    - 开发时：优先从配置文件读取，否则回退到 algorithm/data/nky-CornPre.db。
+    """
+    config_path = get_config_path()
+    db_path = None
+
+    if config_path.exists():
+        try:
+            import configparser
+            config = configparser.ConfigParser()
+            config.read(str(config_path), encoding="utf-8")
+            if config.has_section("database") and config.has_option("database", "db_path"):
+                raw_path = config.get("database", "db_path").strip()
+                if raw_path:
+                    db_path = Path(raw_path)
+                    if not db_path.is_absolute():
+                        db_path = get_root_path() / db_path
+        except Exception:
+            pass
+
+    if db_path is None:
+        if getattr(sys, 'frozen', False):
+            root = get_root_path()
+            db_path = root / "nky-CornPre.db"
+        else:
+            root = get_root_path()
+            db_path = root / "algorithm" / "data" / "nky-CornPre.db"
+
+    if not db_path.exists():
+        raise FileNotFoundError(
+            f"数据库文件不存在: {db_path}\n"
+            "请在 config.ini 中指定正确的 db_path，或将 nky-CornPre.db 放在正确位置。"
+        )
+
+    return db_path
 
 
 def get_private_key_path() -> Path:

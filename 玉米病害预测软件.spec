@@ -27,8 +27,6 @@ datas_list = [
     # Excel 模板
     (str(PROJECT_ROOT / 'algorithm/data/调查数据表--模板.xlsx'), 'algorithm/data'),
     (str(PROJECT_ROOT / 'algorithm/data/点位批次基础信息表.xlsx'), 'algorithm/data'),
-    # 数据库
-    (str(PROJECT_ROOT / 'algorithm/data/nky-CornPre.db'), 'algorithm/data'),
     # 配置文件
     (str(PROJECT_ROOT / 'algorithm/data/config.ini'), 'algorithm/data'),
     # 和风天气 JWT 私钥

@@ -22,7 +22,7 @@ ALGORITHM_DIR = ROOT_DIR / "algorithm"
 sys.path.insert(0, str(ALGORITHM_DIR))
 
 # 统一数据库路径（兼容打包后路径）
-DB_PATH = pkgutil.get_data_path("algorithm/data/nky-CornPre.db")
+DB_PATH = pkgutil.get_db_path()
 
 
 def get_connection():

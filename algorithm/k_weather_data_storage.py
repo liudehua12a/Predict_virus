@@ -6,16 +6,19 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 import uuid
+import sys
 
 from pyparsing import NULL_SLICE
+
+# 将项目根目录加入导入路径，以便引入 pyinstaller_utils
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import pyinstaller_utils as pkgutil
 
 import h_qweather_api as weather_api
 
 # ======分区1：连接与基础工具======
 # ===== 数据库文件路径 =====
 
-BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "data" / "nky-CornPre.db"
 DATA_SOURCE_PRIORITY = {
     "mock": 1,
     "forecast_daily": 2,
@@ -25,16 +28,16 @@ DATA_SOURCE_PRIORITY = {
 
 def get_db_path() -> Path:
     """
-    返回 SQLite 数据库路径。
+    返回 SQLite 数据库路径，优先从配置文件读取，否则使用 exe 同级目录。
+    文件不存在时抛出 FileNotFoundError。
     """
-    return DB_PATH
+    return pkgutil.get_db_path()
 
 def get_connection() -> sqlite3.Connection:
     """
     获取 SQLite 连接。
     """
     db_path = get_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
 
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
