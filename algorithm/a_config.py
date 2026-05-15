@@ -33,10 +33,12 @@ OUT_DIR = ROOT / "results_leafspot_lstm"
 FIG_DIR = OUT_DIR / "figures"
 MODEL_DIR = MODULE_DIR / "models"/"lstm"
 MODEL_DIR_XGBOOST = MODULE_DIR / "models" / "Xgboost"
+MODEL_DIR_FUSION = MODULE_DIR / "models" / "lstm+xgboost"
 
 SURVEY_FILENAME = "2025定点监测叶斑病调查数据.xlsx"
 WEATHER_FILENAME = "2025年定点监测气象数据.xlsx"
 ONLINE_MODEL_TYPE = "LSTM"
+FUSION_DEFAULT_WEIGHT = 0.5
 
 # [01.4] ===== 训练参数与设备配置 =====
 LOOKBACK_DAYS = 21
@@ -311,18 +313,18 @@ BASE_MODEL_FEATURES = [
     "soil_rel_humidity_14d_mean","soil_rel_humidity_7d_mean","soil_rel_humidity_21d_mean","soil_rel_humidity_28d_mean",
 
     "wind_7d_mean",
+    "wind_28d_mean",
     "is_weak_wind_day",
     "weak_wind_streak_days",
 
-    "radiation_7d_mean","low_radiation_streak_days",
+    "radiation_7d_mean","low_radiation_streak_days","radiation_28d_mean",
 
     "hot_streak_days", "cold_streak_days","optimal_temp_streak_days",
 
-    "high_humidity_streak_days","high_humidity_7d_count",
-    # "high_humidity_3d_count",
+    "high_humidity_streak_days","high_humidity_7d_count","high_humidity_28d_count",
 
-    # "heavy_rain_3d_count"
     "heavy_rain_7d_count","heavy_rain_streak_days","max_single_day_rain_7d",
+    "heavy_rain_28d_count","max_single_day_rain_28d",
 
     "hot_humid_streak_days","optimal_temp_humid_streak_days","weak_wind_humid_streak_days",
 ]

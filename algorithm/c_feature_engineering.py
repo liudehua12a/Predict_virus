@@ -96,7 +96,9 @@ def add_process_features(panel_rows: list[dict[str, Any]], weather_by_site: dict
             row["soil_rel_humidity_28d_mean"] = float(arrays["soil_rel_humidity"][window_28].mean())
 
             row["radiation_7d_mean"] = float(arrays["radiation_avg"][window_7].mean())
+            row["radiation_28d_mean"] = float(arrays["radiation_avg"][window_28].mean())
             row["wind_7d_mean"] = float(arrays["wind_avg"][window_7].mean())
+            row["wind_28d_mean"] = float(arrays["wind_avg"][window_28].mean())
             row["is_weak_wind_day"] = float(arrays["weak_wind_flag"][current_idx])
             row["weak_wind_streak_days"] = float(arrays["weak_wind_streak_days"][current_idx])
             row["low_radiation_streak_days"] = float(arrays["low_radiation_streak_days"][current_idx])
@@ -112,12 +114,14 @@ def add_process_features(panel_rows: list[dict[str, Any]], weather_by_site: dict
             row["medium_high_humidity_streak_days"] = float(arrays["medium_high_humidity_streak_days"][current_idx])
 
             row["high_humidity_7d_count"] = float(arrays["high_humidity_flag"][window_7].sum())
-            # row["high_humidity_3d_count"] = float(arrays["high_humidity_flag"][window_3].sum())
+            row["high_humidity_28d_count"] = float(arrays["high_humidity_flag"][window_28].sum())
 
             # row["heavy_rain_3d_count"] = float(arrays["heavy_rain_flag"][window_3].sum())
             row["heavy_rain_7d_count"] = float(arrays["heavy_rain_flag"][window_7].sum())
+            row["heavy_rain_28d_count"] = float(arrays["heavy_rain_flag"][window_28].sum())
             row["heavy_rain_streak_days"] = float(arrays["heavy_rain_streak_days"][current_idx])
             row["max_single_day_rain_7d"] = float(arrays["precip_sum"][window_7].max())
+            row["max_single_day_rain_28d"] = float(arrays["precip_sum"][window_28].max())
 
             row["hot_humid_streak_days"] = float(arrays["hot_humid_streak_days"][current_idx])
             row["optimal_temp_humid_streak_days"] = float(arrays["optimal_temp_humid_streak_days"][current_idx])
@@ -219,8 +223,9 @@ def build_weather_process_feature_rows(weather_by_site: dict[int, dict[str, Any]
                 "soil_rel_humidity_28d_mean": float(arrays["soil_rel_humidity"][window_28].mean()),
 
                 "radiation_7d_mean": float(arrays["radiation_avg"][window_7].mean()),
+                "radiation_28d_mean": float(arrays["radiation_avg"][window_28].mean()),
                 "wind_7d_mean": float(arrays["wind_avg"][window_7].mean()),
-
+                "wind_28d_mean": float(arrays["wind_avg"][window_28].mean()),
                 "is_weak_wind_day": float(arrays["weak_wind_flag"][current_idx]),
                 "weak_wind_streak_days": float(arrays["weak_wind_streak_days"][current_idx]),
                 "low_radiation_streak_days": float(arrays["low_radiation_streak_days"][current_idx]),
@@ -234,12 +239,15 @@ def build_weather_process_feature_rows(weather_by_site: dict[int, dict[str, Any]
                 "medium_high_humidity_streak_days": float(arrays["medium_high_humidity_streak_days"][current_idx]),
 
                 "high_humidity_7d_count": float(arrays["high_humidity_flag"][window_7].sum()),
+                "high_humidity_28d_count": float(arrays["high_humidity_flag"][window_28].sum()),
                 # "high_humidity_3d_count": float(arrays["high_humidity_flag"][window_3].sum()),
 
                 # "heavy_rain_3d_count": float(arrays["heavy_rain_flag"][window_3].sum()),
                 "heavy_rain_7d_count": float(arrays["heavy_rain_flag"][window_7].sum()),
+                "heavy_rain_28d_count": float(arrays["heavy_rain_flag"][window_28].sum()),
                 "heavy_rain_streak_days": float(arrays["heavy_rain_streak_days"][current_idx]),
                 "max_single_day_rain_7d": float(arrays["precip_sum"][window_7].max()),
+                "max_single_day_rain_28d": float(arrays["precip_sum"][window_28].max()),
 
                 "hot_humid_streak_days": float(arrays["hot_humid_streak_days"][current_idx]),
                 "optimal_temp_humid_streak_days": float(arrays["optimal_temp_humid_streak_days"][current_idx]),

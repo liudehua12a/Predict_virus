@@ -234,7 +234,7 @@ def run_online_prediction_for_today(
     )
 
     if is_xgboost:
-        import prediction as xgb_prediction
+        import x_xgboost_prediction as xgb_prediction
 
         all_output = xgb_prediction.run_all_diseases_prediction_and_save(
             site_id=site_id,
@@ -248,9 +248,17 @@ def run_online_prediction_for_today(
         )
     elif is_fusion:
         import importlib
-        fusion_prediction = importlib.import_module("11_predict_disease")
+        fusion_prediction = importlib.import_module("f_fusion_predict")
 
-        all_output = fusion_prediction.run_all_diseases_prediction_and_save(
+        run_fn = getattr(
+            fusion_prediction,
+            "run_all_diseases_prediction_and_save",
+            getattr(fusion_prediction, "call_run_all_diseases_prediction_and_save", None),
+        )
+        if run_fn is None:
+            raise AttributeError("f_fusion_predict 缺少预测入口函数")
+
+        all_output = run_fn(
             site_id=site_id,
             batch_id=batch_id,
             model_type=model_type,

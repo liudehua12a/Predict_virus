@@ -123,10 +123,14 @@ def convert_daily_rows_to_weather_site(
     )
 
     high_humidity_7d_count = []
+    high_humidity_28d_count = []
     for idx in range(len(rh)):
-        start = max(0, idx - 6)
-        high_humidity_7d_count.append(float(np.sum(high_humidity_flag[start : idx + 1])))
+        start_7 = max(0, idx - 6)
+        start_28 = max(0, idx - 27)
+        high_humidity_7d_count.append(float(np.sum(high_humidity_flag[start_7 : idx + 1])))
+        high_humidity_28d_count.append(float(np.sum(high_humidity_flag[start_28 : idx + 1])))
     arrays["high_humidity_7d_count"] = np.asarray(high_humidity_7d_count, dtype=np.float32)
+    arrays["high_humidity_28d_count"] = np.asarray(high_humidity_28d_count, dtype=np.float32)
 
     # 强降水阈值：经验阈值 25mm
     heavy_rain_threshold = float(cfg.HEAVY_RAIN_THRESHOLD)
@@ -135,14 +139,22 @@ def convert_daily_rows_to_weather_site(
     arrays["heavy_rain_streak_days"] = fe.dc.compute_boolean_streaks(heavy_rain_flag)
 
     heavy_rain_7d_count = []
+    heavy_rain_28d_count = []
     max_single_day_rain_7d = []
+    max_single_day_rain_28d = []
     for idx in range(len(precip)):
-        start = max(0, idx - 6)
-        window = precip[start : idx + 1]
-        heavy_rain_7d_count.append(float(np.sum(window >= heavy_rain_threshold)))
-        max_single_day_rain_7d.append(float(np.max(window)))
+        start_7 = max(0, idx - 6)
+        start_28 = max(0, idx - 27)
+        window_7 = precip[start_7 : idx + 1]
+        window_28 = precip[start_28 : idx + 1]
+        heavy_rain_7d_count.append(float(np.sum(window_7 >= heavy_rain_threshold)))
+        heavy_rain_28d_count.append(float(np.sum(window_28 >= heavy_rain_threshold)))
+        max_single_day_rain_7d.append(float(np.max(window_7)))
+        max_single_day_rain_28d.append(float(np.max(window_28)))
     arrays["heavy_rain_7d_count"] = np.asarray(heavy_rain_7d_count, dtype=np.float32)
+    arrays["heavy_rain_28d_count"] = np.asarray(heavy_rain_28d_count, dtype=np.float32)
     arrays["max_single_day_rain_7d"] = np.asarray(max_single_day_rain_7d, dtype=np.float32)
+    arrays["max_single_day_rain_28d"] = np.asarray(max_single_day_rain_28d, dtype=np.float32)
 
     # 弱风：经验阈值 <= 3
     weak_wind_flag = wind <= 3.0
@@ -162,6 +174,11 @@ def convert_daily_rows_to_weather_site(
     arrays["hot_humid_streak_days"] = fe.dc.compute_boolean_streaks(hot_humid_flag)
     arrays["optimal_temp_humid_streak_days"] = fe.dc.compute_boolean_streaks(optimal_temp_humid_flag)
     arrays["weak_wind_humid_streak_days"] = fe.dc.compute_boolean_streaks(weak_wind_humid_flag)
+
+    # 28天风速均值（用于模型特征对齐）
+    arrays["wind_28d_mean"] = _compute_window_mean(wind, window=28)
+    # 28天辐射均值（用于模型特征对齐）
+    arrays["radiation_28d_mean"] = _compute_window_mean(radiation, window=28)
 
     # 按 cfg.SEQ_FEATURES 固定顺序构造矩阵
     feature_matrix = np.column_stack(
@@ -208,15 +225,20 @@ def validate_weather_site_arrays(weather_site: dict[str, Any]) -> None:
         "high_humidity_streak_days",
         "medium_high_humidity_streak_days",
         "high_humidity_7d_count",
+        "high_humidity_28d_count",
 
         "heavy_rain_flag",
         "heavy_rain_streak_days",
         "heavy_rain_7d_count",
+        "heavy_rain_28d_count",
         "max_single_day_rain_7d",
+        "max_single_day_rain_28d",
 
         "hot_humid_streak_days",
         "optimal_temp_humid_streak_days",
         "weak_wind_humid_streak_days",
+        "wind_28d_mean",
+        "radiation_28d_mean",
     ]
 
     arrays = weather_site["arrays"]
@@ -259,7 +281,8 @@ def build_online_panel_rows(
                 "date": parse_date(row["date"]),
                 "record_id": idx,
                 "replicate_id_same_day": 1,
-                    "stage_code": 0.0,
+                "stage_code": float(stage_code),
+                "stage_code": 0.0,
                 "gray_incidence": None,
                 "gray_index": None,
                 "blight_incidence": None,
@@ -360,3 +383,11 @@ def build_future_prediction_rows(
         validate_model_row_features(row)
 
     return future_rows
+
+def _compute_window_mean(values: np.ndarray, window: int) -> np.ndarray:
+    values = np.asarray(values, dtype=np.float32)
+    out = np.empty_like(values, dtype=np.float32)
+    for idx in range(len(values)):
+        start = max(0, idx - window + 1)
+        out[idx] = float(values[start : idx + 1].mean())
+    return out

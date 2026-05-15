@@ -1,25 +1,14 @@
-from __future__ import annotations
-
-from typing import Any
-from pathlib import Path
-
-import joblib
 import numpy as np
-
+from typing import Any
+from datetime import datetime, timedelta
 import a_config as cfg
 import d_model_training_testing as mt
 import i_online_prediction_preparation as opp
 import k_weather_data_storage as storage
-
+from pathlib import Path
+import joblib
 
 BASE_DIR = Path(__file__).resolve().parent
-
-
-def _parse_date_str(value: Any) -> str:
-    if hasattr(value, "strftime"):
-        return value.strftime("%Y-%m-%d")
-    return str(value).strip()[:10]
-
 
 def _model_type_compact(model_type: str) -> str:
     return (
@@ -36,11 +25,6 @@ def _model_type_compact(model_type: str) -> str:
 def load_full_bundle_for_disease(disease_key: str, model_type: str = "XGBoost"):
     """
     在线滚动预测使用的模型加载。
-
-    当前规则：
-    - XGBoost -> xg_full_bundle_{disease}.pt
-    - LSTM -> lstm_full_bundle_{disease}.pt（若不存在则回退 full_bundle）
-    - 融合模型 -> fus_full_bundle_{disease}.pt（若不存在则回退 full_bundle）
     """
     model_type_compact = _model_type_compact(model_type)
 
@@ -93,73 +77,99 @@ def load_full_bundle_for_disease(disease_key: str, model_type: str = "XGBoost"):
     except Exception:
         return mt.load_bundle(bundle_path)
 
-
-def _get_initial_previous_targets(
-    disease_key: str,
-    last_observed_values: dict | None,
-    init_alpha: float = 0.8,
-    init_cap: float = 0.7,
-):
-    """
-    首日 previous_targets 初始化（0~1口径）
-    - 有真实值: min(真实值, init_cap) * init_alpha
-    - 无真实值: 0
-    """
-    if not last_observed_values:
-        return np.asarray([0.0, 0.0], dtype=np.float32)
-
-    init_alpha = float(np.clip(init_alpha, 0.0, 1.0))
-    init_cap = float(np.clip(init_cap, 0.0, 1.0))
-
-    disease_cfg = cfg.DISEASE_CONFIGS[disease_key]
-    target_1, target_2 = disease_cfg["targets"]
-
-    value_1 = float(last_observed_values.get(target_1, 0.0)) / 100.0
-    value_2 = float(last_observed_values.get(target_2, 0.0)) / 100.0
-
-    value_1 = min(max(value_1, 0.0), init_cap) * init_alpha
-    value_2 = min(max(value_2, 0.0), init_cap) * init_alpha
-
-    return np.asarray([value_1, value_2], dtype=np.float32)
-
-
-def _build_prediction_result_row(
-    disease_key: str,
+# ...existing code...
+def _build_feature_vector(
     row: dict,
-    prev_targets: np.ndarray,
-    pred_targets: np.ndarray,
-    model_type: str,
-):
-    disease_cfg = cfg.DISEASE_CONFIGS[disease_key]
-    target_1, target_2 = disease_cfg["targets"]
+    feature_cols: list[str],
+    previous_targets: np.ndarray | None = None,
+    append_prev_targets: bool = False,
+) -> np.ndarray:
+    values = [row.get(c, 0.0) for c in feature_cols]
+    if append_prev_targets and previous_targets is not None:
+        values.extend(np.asarray(previous_targets, dtype=np.float32).reshape(-1).tolist())
+    return np.asarray(values, dtype=np.float32).reshape(1, -1)
 
-    pred_value_1 = float(pred_targets[0] * 100.0)
-    pred_value_2 = float(pred_targets[1] * 100.0)
-    prev_value_1 = float(prev_targets[0] * 100.0)
-    prev_value_2 = float(prev_targets[1] * 100.0)
 
-    return {
-        "date": _parse_date_str(row["date"]),
-        "site_id": row["site_id"],
-        "disease_key": disease_key,
-        "disease_cn": disease_cfg["cn_name"],
-        "model_type": model_type,
-        "prev_target_1_name": target_1,
-        "prev_target_2_name": target_2,
-        "prev_target_1_value": round(prev_value_1, 4),
-        "prev_target_2_value": round(prev_value_2, 4),
-        "pred_target_1_name": target_1,
-        "pred_target_2_name": target_2,
-        "pred_target_1_value": round(pred_value_1, 4),
-        "pred_target_2_value": round(pred_value_2, 4),
-        "pred_target_1_risk": cfg.classify_risk(pred_value_1),
-        "pred_target_2_risk": cfg.classify_risk(pred_value_2),
-        "pred_overall_risk": cfg.combine_risk(pred_value_1, pred_value_2),
-    }
+def _normalize_pred_output(pred: Any) -> np.ndarray:
+    arr = np.asarray(pred, dtype=np.float32).reshape(-1)
+    if arr.size < 2:
+        raise ValueError("预测输出维度不足，期望至少2个目标值。")
+    return arr[:2]
+
+
+def _predict_from_bundle(
+    bundle: Any,
+    row: dict,
+    previous_targets: np.ndarray | None,
+) -> np.ndarray:
+    if isinstance(bundle, dict):
+        predict_fn = bundle.get("predict_row")
+        if callable(predict_fn):
+            return _normalize_pred_output(predict_fn(row, previous_targets))
+
+        model = bundle.get("model") or bundle.get("estimator")
+        feature_cols = (
+            bundle.get("feature_cols")
+            or bundle.get("base_feature_cols")
+            or bundle.get("features")
+        )
+        append_prev_targets = bool(bundle.get("append_prev_targets", False))
+    else:
+        model = bundle
+        feature_cols = getattr(bundle, "feature_cols", None)
+        append_prev_targets = False
+
+    if model is None or not feature_cols:
+        # 回退到原始预测逻辑，兼容旧 bundle 结构
+        return _normalize_pred_output(mt.predict_row(bundle, row, previous_targets))
+
+    features = _build_feature_vector(
+        row=row,
+        feature_cols=feature_cols,
+        previous_targets=previous_targets,
+        append_prev_targets=append_prev_targets,
+    )
+
+    if hasattr(model, "predict"):
+        pred = model.predict(features)
+    elif callable(model):
+        pred = model(features)
+    else:
+        raise ValueError("model 不支持预测调用。")
+
+    return _normalize_pred_output(pred)
+
+
+def predict_row(
+    bundle: dict,
+    row: dict,
+    previous_targets: np.ndarray | None,
+) -> np.ndarray:
+    """
+    单日预测核心（融合逻辑在此）：
+    - 若 bundle 内含 fusion 配置，读取 fusion.lstm 与 fusion.xgb 子模型
+    - 使用 alpha 权重做线性融合：pred = alpha * pred_left + (1 - alpha) * pred_right
+    - 否则回退为单模型预测
+    """
+    fusion_cfg = bundle.get("fusion") if isinstance(bundle, dict) else None
+    if fusion_cfg:
+        left = fusion_cfg.get("lstm") or fusion_cfg.get("left") or fusion_cfg.get("a")
+        right = fusion_cfg.get("xgb") or fusion_cfg.get("right") or fusion_cfg.get("b")
+        if left is None or right is None:
+            raise ValueError("fusion 配置缺少子模型。")
+
+        alpha = float(fusion_cfg.get("alpha", cfg.FUSION_DEFAULT_WEIGHT))
+        alpha = float(np.clip(alpha, 0.0, 1.0))
+
+        pred_left = _predict_from_bundle(left, row, previous_targets)
+        pred_right = _predict_from_bundle(right, row, previous_targets)
+        return pred_left * alpha + pred_right * (1.0 - alpha)
+
+    return _predict_from_bundle(bundle, row, previous_targets)
 
 
 def _rolling_forecast_next_n_days(
-    bundle: dict,
+    bundle: Any,
     disease_key: str,
     future_rows: list[dict],
     last_observed_values: dict | None = None,
@@ -184,7 +194,7 @@ def _rolling_forecast_next_n_days(
 
     prediction_results = []
     for row in future_rows:
-        pred_targets = mt.predict_row(
+        pred_targets = predict_row(
             bundle=bundle,
             row=row,
             previous_targets=previous_targets,
@@ -206,6 +216,35 @@ def _rolling_forecast_next_n_days(
     return prediction_results
 
 
+def _get_initial_previous_targets(
+    disease_key: str,
+    last_observed_values: dict | None,
+    init_alpha: float = 0.8,
+    init_cap: float = 0.7,
+) -> np.ndarray:
+    """
+    首日 previous_targets 初始化（0~1口径）
+    - 有真实值: min(真实值, init_cap) * init_alpha
+    - 无真实值: 0
+    """
+    if not last_observed_values:
+        return np.asarray([0.0, 0.0], dtype=np.float32)
+
+    init_alpha = float(np.clip(init_alpha, 0.0, 1.0))
+    init_cap = float(np.clip(init_cap, 0.0, 1.0))
+
+    disease_cfg = cfg.DISEASE_CONFIGS[disease_key]
+    target_1, target_2 = disease_cfg["targets"]
+
+    value_1 = float(last_observed_values.get(target_1, 0.0)) / 100.0
+    value_2 = float(last_observed_values.get(target_2, 0.0)) / 100.0
+
+    value_1 = min(max(value_1, 0.0), init_cap) * init_alpha
+    value_2 = min(max(value_2, 0.0), init_cap) * init_alpha
+
+    return np.asarray([value_1, value_2], dtype=np.float32)
+
+
 def run_all_diseases_prediction_and_save(
     site_id: int,
     batch_id: int,
@@ -220,13 +259,6 @@ def run_all_diseases_prediction_and_save(
 ):
     """
     在线滚动预测主入口。
-
-    参数含义与 prediction.py 保持一致：
-    - history_daily_rows: 历史逐日特征行
-    - forecast_daily_rows: 未来天气逐日行
-    - predict_dates: 需要预测的日期列表
-    - history_end_date_str: 历史截止日期
-    - last_observed_by_disease: 每种病害最近一次真实观测
     """
     if last_observed_by_disease is None:
         last_observed_by_disease = {}
@@ -307,3 +339,59 @@ def run_all_diseases_prediction_and_save(
             "monotonic_output": False,
         },
     }
+
+def _parse_date_str(value: Any) -> str:
+    if hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d")
+    return str(value).strip()[:10]
+
+
+def _build_prediction_result_row(
+    disease_key: str,
+    row: dict,
+    prev_targets: np.ndarray,
+    pred_targets: np.ndarray,
+    model_type: str,
+):
+    disease_cfg = cfg.DISEASE_CONFIGS[disease_key]
+    target_1, target_2 = disease_cfg["targets"]
+
+    pred_value_1 = float(pred_targets[0] * 100.0)
+    pred_value_2 = float(pred_targets[1] * 100.0)
+    prev_value_1 = float(prev_targets[0] * 100.0)
+    prev_value_2 = float(prev_targets[1] * 100.0)
+
+    return {
+        "date": _parse_date_str(row["date"]),
+        "site_id": row["site_id"],
+        "disease_key": disease_key,
+        "disease_cn": disease_cfg["cn_name"],
+        "model_type": model_type,
+        "prev_target_1_name": target_1,
+        "prev_target_2_name": target_2,
+        "prev_target_1_value": round(prev_value_1, 4),
+        "prev_target_2_value": round(prev_value_2, 4),
+        "pred_target_1_name": target_1,
+        "pred_target_2_name": target_2,
+        "pred_target_1_value": round(pred_value_1, 4),
+        "pred_target_2_value": round(pred_value_2, 4),
+        "pred_target_1_risk": cfg.classify_risk(pred_value_1),
+        "pred_target_2_risk": cfg.classify_risk(pred_value_2),
+        "pred_overall_risk": cfg.combine_risk(pred_value_1, pred_value_2),
+    }
+
+def call_predict_row(
+    bundle: dict,
+    row: dict,
+    previous_targets: np.ndarray | None,
+) -> np.ndarray:
+    """对外调用封装：单日预测。"""
+    return predict_row(bundle=bundle, row=row, previous_targets=previous_targets)
+
+
+def call_run_all_diseases_prediction_and_save(
+    *args,
+    **kwargs,
+):
+    """对外调用封装：在线滚动预测主入口。"""
+    return run_all_diseases_prediction_and_save(*args, **kwargs)
