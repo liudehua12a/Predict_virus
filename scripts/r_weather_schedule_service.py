@@ -81,15 +81,20 @@ def run_forecast_task_for_site(site_row: dict[str, Any]) -> None:
         log(f"[预报任务] site_id={site_id} 聚合后没有任何完整预报日表，跳过", "forecast")
         return
 
-    storage.upsert_weather_daily_rows(
+    write_stats = storage.upsert_weather_daily_rows(
         site_id=site_id,
         daily_rows=daily_rows,
         data_source="forecast_hourly",
     )
 
+    forecast_dates = [row["date"] for row in daily_rows]
+    forecast_start = min(forecast_dates)
+    forecast_end = max(forecast_dates)
     log(
-        f"[预报任务] site_id={site_id} 预报日表写入成功，条数={len(daily_rows)}，"
-        f"日期={[row['date'] for row in daily_rows]}",
+        f"[预报任务] site_id={site_id} 预报日表刷新完成，窗口={forecast_start}~{forecast_end}，"
+        f"拉取条数={len(daily_rows)}，插入={write_stats['inserted']}，"
+        f"更新={write_stats['updated']}，跳过={write_stats['skipped']}，"
+        f"日期={forecast_dates}",
         "forecast"
     )
 
@@ -168,14 +173,16 @@ def run_history_override_task_for_site(site_row: dict[str, Any]) -> None:
         log(f"[历史覆盖任务] site_id={site_id} 聚合后没有昨天 {yesterday_str_ymd} 的日表，跳过", "history")
         return
 
-    storage.upsert_weather_daily_rows(
+    write_stats = storage.upsert_weather_daily_rows(
         site_id=site_id,
         daily_rows=daily_rows,
         data_source="history",
     )
 
     log(
-        f"[历史覆盖任务] site_id={site_id} 历史覆盖成功，日期={yesterday_str_ymd}，条数={len(daily_rows)}",
+        f"[历史覆盖任务] site_id={site_id} 历史覆盖完成，日期={yesterday_str_ymd}，"
+        f"拉取条数={len(daily_rows)}，插入={write_stats['inserted']}，"
+        f"更新={write_stats['updated']}，跳过={write_stats['skipped']}",
         "history"
     )
 

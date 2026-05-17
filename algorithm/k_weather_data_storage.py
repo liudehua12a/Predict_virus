@@ -203,16 +203,24 @@ def upsert_weather_daily_rows(
     site_id: int,
     daily_rows: list[dict[str, Any]],
     data_source: str,
-) -> None:
+) -> dict[str, int]:
     """
     将一批日尺度天气记录写入 weather_daily。
 
     规则：
     - 若 site_id + date 不存在，则插入
     - 若已存在，则只有当新 data_source 优先级 >= 旧 data_source 优先级时才覆盖
+    
+    返回本次真实写入统计：inserted / updated / skipped。
     """
+    stats = {
+        "inserted": 0,
+        "updated": 0,
+        "skipped": 0,
+    }
+
     if not daily_rows:
-        return
+        return stats
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -311,12 +319,19 @@ def upsert_weather_daily_rows(
         )
 
         if not should_replace_existing_row(existing_row, data_source):
+            stats["skipped"] += 1
             old_source = existing_row.get("data_source") if existing_row else None
             print(
                 f"[跳过覆盖] site_id={site_id}, date={row_date_str}, "
                 f"旧来源={old_source}, 新来源={data_source}"
             )
             continue
+
+        if existing_row is None:
+            stats["inserted"] += 1
+        else:
+            stats["updated"] += 1
+
 
         params = (
             site_id,
@@ -363,11 +378,13 @@ def upsert_weather_daily_rows(
 
     if not params_list:
         print(f"[提示] 本次没有可写入的 weather_daily 记录，data_source={data_source}")
-        return
+        return stats
 
     with closing(get_connection()) as conn:
         with conn:
             conn.executemany(sql, params_list)
+
+    return stats
 
 def get_recent_weather_daily_rows(
     site_id: int,
