@@ -18,7 +18,7 @@ import pyinstaller_utils as pkgutil
 ROOT_DIR = pkgutil.get_root_path()
 ALGORITHM_DIR = ROOT_DIR / "algorithm"
 
-# 把 algorithm 目录加入导入路径
+# 把 algorithm 目录加入导入路径，使内部模块可相互引用
 sys.path.insert(0, str(ALGORITHM_DIR))
 
 # 统一数据库路径（兼容打包后路径）
@@ -36,7 +36,7 @@ def import_site_batch(file_path: str):
     导入点位 + 批次基础信息表
     这里改成函数内再导入，避免启动 UI 时加载整套算法
     """
-    import q_site_batch_import_service as site_batch_service
+    from algorithm import q_site_batch_import_service as site_batch_service
     return site_batch_service.import_site_batch_excel(file_path)
 
 
@@ -44,7 +44,7 @@ def import_observation(file_path: str):
     """
     导入真实调查表：只入库，不触发预测/重算
     """
-    import o_observation_import_service as observation_service
+    from algorithm import o_observation_import_service as observation_service
     return observation_service.import_observation_only(file_path)
 
 
@@ -53,7 +53,6 @@ def run_prediction(site_id: int, batch_id: int, model_type: str = "LSTM"):
     触发单个 site + batch 的在线预测
     这里改成函数内再导入，避免启动 UI 时加载整套算法
     """
-
     import n_online_prediction_service as prediction_service
     return prediction_service.run_online_prediction_for_today(
         site_id=site_id,

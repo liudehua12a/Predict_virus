@@ -75,8 +75,9 @@ def get_db_path() -> Path:
 
     if db_path is None:
         if getattr(sys, 'frozen', False):
-            root = get_root_path()
-            db_path = root / "nky-CornPre.db"
+            # 打包后：exe 同级目录下的数据库文件
+            exe_dir = Path(sys.executable).parent
+            db_path = exe_dir / "nky-CornPre.db"
         else:
             root = get_root_path()
             db_path = root / "algorithm" / "data" / "nky-CornPre.db"
