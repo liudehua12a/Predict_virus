@@ -8,7 +8,7 @@ from typing import Any
 import uuid
 import sys
 
-from pyparsing import NULL_SLICE
+
 
 # 将项目根目录加入导入路径，以便引入 pyinstaller_utils
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))

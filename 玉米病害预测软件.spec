@@ -5,14 +5,14 @@ PyInstaller Spec File for 玉米病害预测软件
 """
 
 import sys
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
-from PyInstaller.build import specpath
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_all, collect_dynamic_libs
 from pathlib import Path
 
 block_cipher = None
 
 # 项目根目录
-PROJECT_ROOT = Path(__file__).resolve().parent
+import os
+PROJECT_ROOT = Path(os.path.dirname(os.path.abspath(sys.argv[0])))
 
 # ============================================================
 # 数据文件打包配置
@@ -20,6 +20,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 # ============================================================
 
 datas_list = [
+    # algorithm Python 源码（作为 package）
+    (str(PROJECT_ROOT / 'algorithm'), 'algorithm'),
     # 背景图片
     (str(PROJECT_ROOT / 'algorithm/data/imgs/background'), 'algorithm/data/imgs/background'),
     # 天气图标
@@ -143,6 +145,9 @@ hiddenimports_list = [
     'prediction',
     'gen_jwt',
 
+    # 算法模块完整收集（确保所有内部引用都能找到）
+    'algorithm',
+
     # UI 模块
     'ui_adapter.adapter',
     'ui_adapter.data_management.window',
@@ -155,13 +160,9 @@ hiddenimports_list = [
     'pyinstaller_utils',
 ]
 
-# ============================================================
-# 收集子模块（确保打包 sklearn/xgboost/torch 的子模块）
-# ============================================================
-
-hiddenimports_list += collect_submodules('sklearn')
-hiddenimports_list += collect_submodules('xgboost')
-hiddenimports_list += collect_submodules('torch')
+# 收集算法模块的所有数据文件和子模块
+datas_list += collect_data_files('algorithm')
+hiddenimports_list += collect_submodules('algorithm')
 
 # ============================================================
 # 构建 Analysis
@@ -170,7 +171,7 @@ hiddenimports_list += collect_submodules('torch')
 a = Analysis(
     ['main.py'],
     pathex=[str(PROJECT_ROOT)],
-    binaries=[],
+    binaries=collect_dynamic_libs('torch'),
     datas=datas_list,
     hiddenimports=hiddenimports_list,
     win_private_assemblies=False,
@@ -181,9 +182,13 @@ a = Analysis(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,  # 打包成 GUI 程序，不显示控制台窗口
+    console=True,
     disable_windowed_traceback=False,
     argv_emulator=False,
+    env={
+        'KMP_DUPLICATE_LIB_OK': 'TRUE',
+        'OMP_NUM_THREADS': '1',
+    },
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
@@ -212,7 +217,7 @@ exe = EXE(
     strip=False,
     upx=True,
     runtime_tmpdir=None,
-    console=False,  # GUI 程序，不显示控制台
+    console=True,  # GUI 程序，不显示控制台
     disable_windowed_traceback=False,
     argv_emulator=False,
     target_arch=None,

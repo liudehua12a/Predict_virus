@@ -319,7 +319,8 @@ class WelcomeWidget(QWidget):
         layout.addWidget(footer_label)
 
         # 2. 拼接图片的绝对路径（兼容打包后路径）
-        bg_path = pkgutil.get_data_path('algorithm/data/imgs/background/224.jpg')
+        # 使用 .as_posix() 转换为正斜杠格式，确保 Qt CSS 正确解析
+        bg_path = pkgutil.get_data_path('algorithm/data/imgs/background/224.jpg').as_posix()
 
         # 4. 强制生效背景
         self.setAttribute(Qt.WA_StyledBackground, True)
