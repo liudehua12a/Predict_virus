@@ -6,9 +6,11 @@ from PyQt5.QtCore import Qt
 import sqlite3
 from pathlib import Path
 from datetime import datetime
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
+import pyinstaller_utils as pkgutil
 
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-DB_PATH = ROOT_DIR / "algorithm" / "data" / "nky-CornPre.db"
+DB_PATH = pkgutil.get_db_path()
 
 
 class SiteEditDialog(QDialog):

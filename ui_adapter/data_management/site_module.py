@@ -6,11 +6,13 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 import sqlite3
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+import pyinstaller_utils as pkgutil
 from .base import ManagementModule
 from .dialogs.site_edit_dialog import SiteEditDialog
 
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-DB_PATH = ROOT_DIR / "algorithm" / "data" / "nky-CornPre.db"
+DB_PATH = pkgutil.get_db_path()
 
 
 class SiteManagementModule(ManagementModule):

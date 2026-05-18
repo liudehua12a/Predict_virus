@@ -6,8 +6,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 import uuid
+import sys
 
-from pyparsing import NULL_SLICE
+
+
+# 将项目根目录加入导入路径，以便引入 pyinstaller_utils
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import pyinstaller_utils as pkgutil
 
 import h_qweather_api as weather_api
 import a_config as cfg
@@ -15,8 +20,6 @@ import a_config as cfg
 # ======分区1：连接与基础工具======
 # ===== 数据库文件路径 =====
 
-BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "data" / "nky-CornPre.db"
 DATA_SOURCE_PRIORITY = {
     "mock": 1,
     "forecast_daily": 2,
@@ -26,16 +29,16 @@ DATA_SOURCE_PRIORITY = {
 
 def get_db_path() -> Path:
     """
-    返回 SQLite 数据库路径。
+    返回 SQLite 数据库路径，优先从配置文件读取，否则使用 exe 同级目录。
+    文件不存在时抛出 FileNotFoundError。
     """
-    return DB_PATH
+    return pkgutil.get_db_path()
 
 def get_connection() -> sqlite3.Connection:
     """
     获取 SQLite 连接。
     """
     db_path = get_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
 
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
@@ -201,16 +204,24 @@ def upsert_weather_daily_rows(
     site_id: int,
     daily_rows: list[dict[str, Any]],
     data_source: str,
-) -> None:
+) -> dict[str, int]:
     """
     将一批日尺度天气记录写入 weather_daily。
 
     规则：
     - 若 site_id + date 不存在，则插入
     - 若已存在，则只有当新 data_source 优先级 >= 旧 data_source 优先级时才覆盖
+    
+    返回本次真实写入统计：inserted / updated / skipped。
     """
+    stats = {
+        "inserted": 0,
+        "updated": 0,
+        "skipped": 0,
+    }
+
     if not daily_rows:
-        return
+        return stats
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -309,12 +320,19 @@ def upsert_weather_daily_rows(
         )
 
         if not should_replace_existing_row(existing_row, data_source):
+            stats["skipped"] += 1
             old_source = existing_row.get("data_source") if existing_row else None
             print(
                 f"[跳过覆盖] site_id={site_id}, date={row_date_str}, "
                 f"旧来源={old_source}, 新来源={data_source}"
             )
             continue
+
+        if existing_row is None:
+            stats["inserted"] += 1
+        else:
+            stats["updated"] += 1
+
 
         params = (
             site_id,
@@ -361,11 +379,13 @@ def upsert_weather_daily_rows(
 
     if not params_list:
         print(f"[提示] 本次没有可写入的 weather_daily 记录，data_source={data_source}")
-        return
+        return stats
 
     with closing(get_connection()) as conn:
         with conn:
             conn.executemany(sql, params_list)
+
+    return stats
 
 def get_recent_weather_daily_rows(
     site_id: int,
@@ -1437,11 +1457,12 @@ def growth_stage_to_code(growth_stage: Any) -> float:
     - 10  -> 10.0
     """
     if growth_stage is None:
-        raise ValueError("growth_stage 为空，无法生成 stage_code。")
+        return 0
 
     text = str(growth_stage).strip().upper()
     if text == "":
-        raise ValueError("growth_stage 为空字符串，无法生成 stage_code。")
+        return 0
+
 
     # 直接使用配置映射（支持 V/R/VE 等）
     if text in cfg.STAGE_CODE_BASE:
@@ -1456,11 +1477,12 @@ def growth_stage_to_code(growth_stage: Any) -> float:
     # 支持 Excel 直接填 10 / 8 / 3
     if text.isdigit():
         return float(text)
+    return 0
 
-    raise ValueError(
-        f"无法识别的 growth_stage: {growth_stage}。"
-        "当前支持格式：V1、V2、...、V10、R1、R2、...、R6、VE，或直接填写数字 1、2、...、10。"
-    )
+    # raise ValueError(
+    #     f"无法识别的 growth_stage: {growth_stage}。"
+    #     "当前支持格式：V1、V2、...、V10，或直接填写数字 1、2、...、10。"
+    # )
 
 
 def get_latest_stage_code_on_or_before_date(
@@ -1884,8 +1906,12 @@ def get_weather_data(site_id: int, days: int = 7) -> list[dict[str, Any]]:
 def get_data_staleness_threshold() -> int | None:
     """从配置文件读取数据时效阈值（默认7天，None表示无限制）"""
     import configparser
-    ROOT_DIR = Path(__file__).resolve().parent.parent
-    _CONFIG_PATH = ROOT_DIR / "algorithm" / "data" / "config.ini"
+    # 兼容打包后路径
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    import pyinstaller_utils as pkgutil
+    _CONFIG_PATH = pkgutil.get_config_path()
     cfg = configparser.ConfigParser()
     cfg.read(str(_CONFIG_PATH))
     try:
@@ -1900,8 +1926,12 @@ def get_data_staleness_threshold() -> int | None:
 def set_data_staleness_threshold(value: int | None) -> None:
     """写入数据时效阈值到配置文件（None表示无限制）"""
     import configparser
-    ROOT_DIR = Path(__file__).resolve().parent.parent
-    _CONFIG_PATH = ROOT_DIR / "algorithm" / "data" / "config.ini"
+    # 兼容打包后路径
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    import pyinstaller_utils as pkgutil
+    _CONFIG_PATH = pkgutil.get_config_path()
     cfg = configparser.ConfigParser()
     cfg.read(str(_CONFIG_PATH))
     if "data_management" not in cfg:

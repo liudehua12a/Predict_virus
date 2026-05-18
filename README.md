@@ -1,11 +1,12 @@
 # 玉米病害预测系统
 
-基于 PyQt5 开发的玉米病害预测系统，用于利用多种模型（XGBoost、LSTM、LSTM-XGBoost 融合模型）预测目标区域未来7天内三种玉米病害（灰斑病、大斑病、白斑病）的发病程度，并以柱状图形式进行可视化展示。
+基于 PyQt5 开发的玉米病害预测系统，用于利用多种模型（XGBoost、LSTM、LSTM-XGBoost 融合模型、大语言模型）预测目标区域未来7天内三种玉米病害（灰斑病、大斑病、白斑病）的发病程度，并以柱状图形式进行可视化展示。
 
 ## 功能特性
 
 - **Excel 数据导入**：支持将 Excel 中的病害调查数据导入到数据库
-- **模型选择**：提供 XGBoost、LSTM、LSTM-XGBoost 融合模型三种预测模型
+- **模型选择**：提供 XGBoost、LSTM、LSTM-XGBoost 融合模型、大语言模型（Qwen）四种预测模型
+- **大模型预测**：支持通过阿里云千问API调用大语言模型进行病害预测
 - **目标区域选择**：采用联动下拉框，支持一级地点选择和二级批次选择
 - **预测功能**：自动获取数据并执行预测，将结果保存到数据库
 - **可视化展示**：使用柱状图展示预测结果，按风险级别着色
@@ -62,6 +63,7 @@ python main.py
   - XGBoost
   - LSTM
   - LSTM-XGBoost 融合模型
+  - Qwen 大模型
 
 ### 3. 目标区域选择
 
@@ -95,6 +97,11 @@ python main.py
 ├── algorithm/             # 算法核心模块
 │   ├── data/              # 数据文件
 │   ├── lstm_xgboost_fusion/  # 融合模型实现
+│   ├── llm/               # 大语言模型预测模块
+│   │   ├── llm_predictor.py   # LLM预测器核心类
+│   │   ├── qwen_client.py     # 千问API客户端
+│   │   ├── prompt_builder.py  # Prompt构建器
+│   │   └── response_parser.py # 响应解析器
 │   ├── models/            # 预训练模型
 │   ├── outputs/           # 输出文件
 │   ├── 11_predict_disease.py  # 病害预测主文件
@@ -158,6 +165,79 @@ python main.py
 - 检查 matplotlib 是否正确安装
 - 确认数据范围在 0-100 之间
 
+## 大模型预测说明
+
+### 支持的模型类型
+
+系统支持以下大语言模型类型：
+- `QWEN` / `QWEN_PLUS` / `QWEN_MAX` / `QWEN_TURBO`
+- `LLM` / `大模型` / `QWEN 大模型`
+
+### 调用流程
+
+```
+UI层 (adapter.py)
+    └── run_prediction(site_id, batch_id, model_type)
+            ▼
+main.py: run_prediction()
+            ▼
+n_online_prediction_service.py
+    ├── is_llm_model_type(model_type)  # 判断是否LLM模型
+    │       │
+    │       ▼ (是LLM模型)
+    │   o_llm_prediction_service.py
+    │       │
+    │       ▼
+    │   LLMPredictor.predict()
+    │       ├── prompt_builder: 构建Prompt（含气象阈值、病害知识）
+    │       ├── qwen_client: 调用千问API
+    │       └── response_parser: 解析JSON响应
+    │       │
+    │       ▼
+    │   保存结果到数据库
+    │
+    └── (非LLM模型) → 传统模型预测
+```
+
+### 输入数据
+
+- **历史天气数据**：过去7天的气象数据（日期、气温、降水、湿度、风速、辐射）
+- **未来天气预报**：未来7天的气象预报
+- **起点病害值**：预测起始日的病害观测数据（发病率、病情指数）
+
+### Prompt构建
+
+系统Prompt包含：
+- 病害类型知识（灰斑病、大斑病、白斑病）
+- 关键气象阈值（高湿度≥90%、强降雨≥25mm、适温18-28℃、弱风≤3m/s）
+- 单调性约束（发病后不会减轻）
+- 数值范围（发病率0-100%，病情指数0-100）
+
+### 配置参数
+
+在 `algorithm/config.ini.example` 中配置：
+
+```ini
+[qwen]
+api_key = your_api_key_here
+model = qwen3.6-plus   # 可选: qwen-plus, qwen-max, qwen-turbo
+```
+
+API Key 优先级：构造函数传入 > 环境变量 `DASHSCOPE_API_KEY` > 配置文件
+
+### 预测约束
+
+玉米叶斑病具有单调递增特性：发病后不会自行减轻。系统自动对LLM预测结果应用单调性约束。
+
+### 输出格式
+
+预测结果与LSTM/XGBoost模型统一格式：
+- `pred_target_1_value`：发病株率
+- `pred_target_2_value`：病情指数
+- `pred_overall_risk`：风险等级（低风险/中风险/高风险）
+
+风险分级：≤30低风险，31-70中风险，>70高风险
+
 ## 技术栈
 
 - **Python**：主要编程语言
@@ -170,6 +250,7 @@ python main.py
 - **scikit-learn**：机器学习工具
 - **requests**：HTTP请求（用于天气API）
 - **JWT**：身份验证（用于API调用）
+- **dashscope**：阿里云千问API SDK（用于大模型预测）
 
 ## 后续开发计划
 
