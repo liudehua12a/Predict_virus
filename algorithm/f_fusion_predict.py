@@ -1,6 +1,5 @@
 import numpy as np
 from typing import Any
-from datetime import datetime, timedelta
 import a_config as cfg
 import d_model_training_testing as mt
 import i_online_prediction_preparation as opp
@@ -10,52 +9,20 @@ import joblib
 
 BASE_DIR = Path(__file__).resolve().parent
 
-def _model_type_compact(model_type: str) -> str:
-    return (
-        str(model_type or "")
-        .strip()
-        .lower()
-        .replace(" ", "")
-        .replace("_", "")
-        .replace("－", "-")
-        .replace("—", "-")
-    )
-
-
-def load_full_bundle_for_disease(disease_key: str, model_type: str = "XGBoost"):
+def load_full_bundle_for_disease(
+    disease_key: str,
+    model_type: str = "LSTM+XGBoost",
+    force_fusion: bool = True,
+):
     """
-    在线滚动预测使用的模型加载。
+    在线滚动预测使用的模型加载（仅融合模型）。
     """
-    model_type_compact = _model_type_compact(model_type)
-
-    if (
-        ("xgboost" in model_type_compact)
-        and ("lstm" not in model_type_compact)
-        and ("fusion" not in model_type_compact)
-        and ("融合" not in model_type_compact)
-    ):
-        model_dir = getattr(cfg, "MODEL_DIR_XGBOOST", getattr(cfg, "MODEL_DIR", BASE_DIR))
-        candidate_names = [f"xg_full_bundle_{disease_key}.pt", f"full_bundle_{disease_key}.pt"]
-
-    elif ("fusion" in model_type_compact) or ("融合" in model_type_compact) or (
-        ("lstm" in model_type_compact) and ("xgboost" in model_type_compact)
-    ):
-        model_dir = getattr(cfg, "MODEL_DIR_FUSION", getattr(cfg, "MODEL_DIR", BASE_DIR))
-        candidate_names = [
-            f"fus_full_bundle_{disease_key}.pt",
-            f"fusion_full_bundle_{disease_key}.pt",
-            f"full_bundle_{disease_key}.pt",
-        ]
-
-    elif "lstm" in model_type_compact:
-        model_dir = getattr(cfg, "MODEL_DIR_LSTM", getattr(cfg, "MODEL_DIR", BASE_DIR))
-        candidate_names = [
-            f"lstm_full_bundle_{disease_key}.pt",
-            f"full_bundle_{disease_key}.pt",
-        ]
-
-    else:
-        raise ValueError(f"不支持的 model_type: {model_type!r}")
+    model_dir = getattr(cfg, "MODEL_DIR_FUSION", getattr(cfg, "MODEL_DIR", BASE_DIR))
+    candidate_names = [
+        f"fus_full_bundle_{disease_key}.pt",
+        f"fusion_full_bundle_{disease_key}.pt",
+        f"full_bundle_{disease_key}.pt",
+    ]
 
     model_dir = Path(model_dir)
     bundle_path = None
@@ -120,7 +87,6 @@ def _predict_from_bundle(
         append_prev_targets = False
 
     if model is None or not feature_cols:
-        # 回退到原始预测逻辑，兼容旧 bundle 结构
         return _normalize_pred_output(mt.predict_row(bundle, row, previous_targets))
 
     features = _build_feature_vector(
@@ -256,6 +222,7 @@ def run_all_diseases_prediction_and_save(
     last_observed_by_disease: dict | None = None,
     init_alpha: float = 0.8,
     init_cap: float = 0.7,
+    force_fusion: bool = False,
 ):
     """
     在线滚动预测主入口。
@@ -292,7 +259,11 @@ def run_all_diseases_prediction_and_save(
     )
 
     for idx, disease_key in enumerate(disease_order):
-        bundle = load_full_bundle_for_disease(disease_key, model_type=model_type)
+        bundle = load_full_bundle_for_disease(
+            disease_key,
+            model_type=model_type,
+            force_fusion=force_fusion,
+        )
 
         disease_last_observed = last_observed_by_disease.get(disease_key)
 
@@ -394,4 +365,14 @@ def call_run_all_diseases_prediction_and_save(
     **kwargs,
 ):
     """对外调用封装：在线滚动预测主入口。"""
+    return run_all_diseases_prediction_and_save(*args, **kwargs)
+
+
+def call_run_all_diseases_fusion_prediction_and_save(
+    *args,
+    **kwargs,
+):
+    """对外调用封装：强制使用融合模型进行在线滚动预测。"""
+    kwargs.setdefault("force_fusion", True)
+    kwargs.setdefault("model_type", "LSTM+XGBoost")
     return run_all_diseases_prediction_and_save(*args, **kwargs)
