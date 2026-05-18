@@ -256,6 +256,14 @@ def validate_model_row_features(row: dict[str, Any]) -> None:
     if "weather_seq_21" not in row:
         raise ValueError("future_row 缺少 weather_seq_21")
 
+    seq = row["weather_seq_21"]
+    if seq is None:
+        raise ValueError("weather_seq_21 为 None")
+    if not np.isfinite(np.asarray(seq, dtype=np.float32)).all():
+        raise ValueError("weather_seq_21 存在 NaN/Inf")
+    if np.allclose(seq, 0.0):
+        raise ValueError("weather_seq_21 全为 0，疑似构造异常")
+
     if row["weather_seq_21"].shape[1] != len(cfg.SEQ_FEATURES):
         raise ValueError(
             f"weather_seq_21 列数不匹配：实际 {row['weather_seq_21'].shape[1]}，"

@@ -407,17 +407,21 @@ def _build_feature_row_by_columns(
             feature_values[col] = float(previous_targets[1])
             continue
 
-        missing_cols.append(col)
-        feature_values[col] = 0.0
+        if missing_cols:
+            raise ValueError(
+                f"[XGB][FeatureMissing] date={row.get('date')} "
+                f"missing={len(missing_cols)} sample={missing_cols[:30]}"
+            )
 
     if missing_cols:
         date_text = row.get("date")
         summary_values = [feature_values[col] for col in feature_columns]
-        print(
+        message = (
             f"[XGB][FeatureMissing] date={date_text} missing={len(missing_cols)} "
             f"sample={missing_cols[:6]} input_min={min(summary_values):.4f} "
             f"input_max={max(summary_values):.4f}"
         )
+        raise ValueError(message)
 
     return pd.DataFrame([[feature_values[col] for col in feature_columns]], columns=feature_columns)
 

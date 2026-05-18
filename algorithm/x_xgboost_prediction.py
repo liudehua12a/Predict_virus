@@ -60,8 +60,8 @@ def load_full_bundle_for_disease(disease_key: str, model_type: str = "XGBoost"):
 def _get_initial_previous_targets(
     disease_key: str,
     last_observed_values: dict | None,
-    init_alpha: float = 0.8,
-    init_cap: float = 0.7,
+    init_alpha: float = 1.0,
+    init_cap: float = 1.0,
 ):
     """
     首日 previous_targets 初始化（0~1口径）
@@ -84,6 +84,29 @@ def _get_initial_previous_targets(
     value_2 = min(max(value_2, 0.0), init_cap) * init_alpha
 
     return np.asarray([value_1, value_2], dtype=np.float32)
+
+
+def _normalize_xgb_output_scale(values: np.ndarray) -> np.ndarray:
+    values = np.asarray(values, dtype=np.float32).reshape(-1)
+    if values.size < 2:
+        return values
+    max_val = float(np.max(values))
+    if 1.5 < max_val <= 100.0:
+        return values / 100.0
+    return values
+
+
+def _apply_white_smoothing(
+    pred_targets: np.ndarray,
+    prev_targets: np.ndarray,
+    max_growth: float = 0.05,
+    smooth_alpha: float = 0.6,
+) -> np.ndarray:
+    pred_targets = np.asarray(pred_targets, dtype=np.float32)
+    prev_targets = np.asarray(prev_targets, dtype=np.float32)
+    delta = np.clip(pred_targets - prev_targets, -max_growth, max_growth)
+    smoothed = prev_targets + delta
+    return smooth_alpha * smoothed + (1.0 - smooth_alpha) * pred_targets
 
 
 def _build_prediction_result_row(
@@ -130,7 +153,6 @@ def _rolling_forecast_next_n_days(
     init_alpha: float = 0.8,
     init_cap: float = 0.7,
     model_type: str = "XGBoost",
-    enforce_monotonic: bool = True,
 ):
     """
     逐日滚动预测：
@@ -178,7 +200,14 @@ def _rolling_forecast_next_n_days(
             )
             pred_targets = np.asarray(pred_targets, dtype=np.float32)
 
-        if enforce_monotonic and not observed_row:
+        pred_targets = _normalize_xgb_output_scale(pred_targets)
+
+        # 如果是观测日，直接以观测值作为预测结果（不强制单调），
+        # 否则对模型输出应用单调不降限制，确保预测值不会比前一天降低。
+        if disease_key == "white" and not observed_row:
+            pred_targets = _apply_white_smoothing(pred_targets, previous_targets)
+
+        if not observed_row:
             pred_targets = np.maximum(pred_targets, previous_targets)
 
         prediction_results.append(
@@ -237,8 +266,8 @@ def run_all_diseases_prediction_and_save(
     predict_dates: list[str],
     history_end_date_str: str,
     last_observed_by_disease: dict | None = None,
-    init_alpha: float = 0.8,
-    init_cap: float = 0.7,
+    init_alpha: float = 1.0,
+    init_cap: float = 1.0,
 ):
     if last_observed_by_disease is None:
         last_observed_by_disease = {}
@@ -304,7 +333,6 @@ def run_all_diseases_prediction_and_save(
             init_alpha=init_alpha,
             init_cap=init_cap,
             model_type=model_type,
-            enforce_monotonic=True,
         )
 
         for row in disease_results:
